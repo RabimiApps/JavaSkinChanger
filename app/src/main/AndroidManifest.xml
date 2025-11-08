@@ -1,10 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ネットワークアクセス -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-    
-    <!-- Android 14 以降の画像読み込み用権限 -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <application
         android:allowBackup="true"
@@ -12,25 +9,25 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
 
+        <!-- 起動画面 -->
         <activity android:name=".WelcomeActivity" android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
 
-        <activity android:name=".MainActivity" android:exported="false"/>
-        <activity android:name=".SkinLibraryActivity" android:exported="false"/>
-
-        <!-- OAuth2 Redirect URI 用 -->
-        <activity android:name="net.openid.appauth.RedirectUriReceiverActivity">
+            <!-- ここを追加！リダイレクトURIをこのActivityで受け取る -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="javaskinchanger" android:host="auth"/>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="javaskinchanger" android:host="auth" />
             </intent-filter>
         </activity>
+
+        <!-- 他の画面 -->
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".SkinLibraryActivity" android:exported="false" />
 
     </application>
 
