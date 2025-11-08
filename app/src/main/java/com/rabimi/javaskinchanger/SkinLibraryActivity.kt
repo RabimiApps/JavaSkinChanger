@@ -16,16 +16,18 @@ class SkinLibraryActivity : AppCompatActivity() {
         setContentView(R.layout.activity_skin_library)
 
         recyclerView = findViewById(R.id.recyclerView)
-        recyclerView.layoutManager = GridLayoutManager(this, 3) // 3列グリッド
+        recyclerView.layoutManager = GridLayoutManager(this, 3)
 
-        val uriList: List<Uri> = getSkinUris() // 仮のスキンUriリスト
+        val uriList: List<Uri> = getSkinUris()
+
+        // 空リストでも Adapter は作る
         adapter = SkinAdapter(this, uriList)
         recyclerView.adapter = adapter
     }
 
     private fun getSkinUris(): List<Uri> {
-        // 実際は端末ストレージやアプリ内ストレージから Uri を取得
-        // テスト用に空リストで問題なし
+        // ここで端末内の画像Uriを取得する
+        // 今は空リストだが、将来的にはFileProviderやMediaStoreから取得
         return listOf()
     }
 }
