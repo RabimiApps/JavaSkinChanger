@@ -15,7 +15,7 @@ class SkinLibraryActivity : AppCompatActivity() {
         val recyclerView: RecyclerView = findViewById(R.id.recyclerView)
         val skins = SkinStorage.loadAllSkins(this)
 
-        val adapter = SkinAdapter(skins)
+        val adapter = SkinAdapter(this,skins)
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(this)
     }
