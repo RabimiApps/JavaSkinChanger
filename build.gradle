@@ -14,14 +14,6 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url "https://jitpack.io" } // Glide など
-    }
-}
-
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
