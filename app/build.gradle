@@ -13,7 +13,7 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 1
-        versionName "1.1"
+        versionName "810.19.1945.45114514"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // OAuth2 リダイレクト用プレースホルダー
