@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ネットワークアクセス -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    
+    <!-- Android 14 以降の画像読み込み用権限 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
 
     <application
         android:allowBackup="true"
