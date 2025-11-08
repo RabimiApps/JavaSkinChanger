@@ -1,68 +1,60 @@
 package com.rabimi.javaskinchanger
 
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
-import net.openid.appauth.*
-import android.net.Uri
 
 class WelcomeActivity : AppCompatActivity() {
 
-    private lateinit var authService: AuthorizationService
+    private val clientId = "00000000402b5328" // Minecraft公式用の既知ClientID（PojavLauncherと同じ）
+    private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
+    private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_welcome)
 
-        authService = AuthorizationService(this)
-
         val btnNext = findViewById<Button>(R.id.btnNext)
         btnNext.setOnClickListener {
-            startMicrosoftLogin()
-        }
-    }
+            val webView = WebView(this)
+            webView.settings.javaScriptEnabled = true
+            setContentView(webView)
 
-    private fun startMicrosoftLogin() {
-        val serviceConfig = AuthorizationServiceConfiguration(
-            Uri.parse("https://login.microsoftonline.com/common/oauth2/v2.0/authorize"), // Auth endpoint
-            Uri.parse("https://login.microsoftonline.com/common/oauth2/v2.0/token")      // Token endpoint
-        )
+            val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
+                    "?client_id=$clientId" +
+                    "&response_type=token" +
+                    "&redirect_uri=$redirectUri" +
+                    "&scope=$scope"
 
-        val clientId = "YOUR_MICROSOFT_APP_CLIENT_ID"
-        val redirectUri = Uri.parse("javaskinchanger://oauth2redirect")
-        val authRequest = AuthorizationRequest.Builder(
-            serviceConfig,
-            clientId,
-            ResponseTypeValues.CODE,
-            redirectUri
-        ).setScopes("XboxLive.signin offline_access").build()
-
-        val intent = authService.getAuthorizationRequestIntent(authRequest)
-        startActivityForResult(intent, 100)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 100) {
-            val resp = AuthorizationResponse.fromIntent(data!!)
-            val ex = AuthorizationException.fromIntent(data)
-
-            if (resp != null) {
-                val tokenRequest = resp.createTokenExchangeRequest()
-                authService.performTokenRequest(tokenRequest) { response, exception ->
-                    if (response != null) {
-                        val accessToken = response.accessToken!!
-                        // 保存
-                        val sp = getSharedPreferences("prefs", MODE_PRIVATE)
-                        sp.edit().putString("microsoft_token", accessToken).apply()
-
-                        // メイン画面へ
-                        startActivity(Intent(this, MainActivity::class.java))
-                        finish()
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                    if (url.startsWith(redirectUri)) {
+                        if (url.contains("#access_token=")) {
+                            val token = Uri.parse(url.replace("#", "?")).getQueryParameter("access_token")
+                            if (token != null) {
+                                saveTokenAndContinue(token)
+                            }
+                        }
+                        return true
                     }
+                    return false
                 }
             }
+
+            webView.loadUrl(loginUrl)
         }
+    }
+
+    private fun saveTokenAndContinue(token: String) {
+        val sp = getSharedPreferences("prefs", MODE_PRIVATE)
+        sp.edit().putString("microsoft_token", token).apply()
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
     }
 }
