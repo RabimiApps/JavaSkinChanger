@@ -1,17 +1,23 @@
 package com.rabimi.javaskinchanger
 
 import android.os.Bundle
-import android.widget.GridView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class SkinLibraryActivity : AppCompatActivity() {
 
+    private lateinit var recyclerView: RecyclerView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_skin_library)
+        setContentView(R.layout.activity_library)
 
-        val grid = findViewById<GridView>(R.id.skinGrid)
-        val skins = SkinStorage.listSkins(this)
-        grid.adapter = SkinAdapter(this, skins)
+        recyclerView = findViewById(R.id.recyclerView)
+        recyclerView.layoutManager = GridLayoutManager(this, 2)
+
+        val skins = SkinStorage.loadAllSkins(this)
+        val adapter = SkinAdapter(skins)
+        recyclerView.adapter = adapter
     }
 }
