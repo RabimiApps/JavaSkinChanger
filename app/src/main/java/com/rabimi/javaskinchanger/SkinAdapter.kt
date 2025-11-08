@@ -1,18 +1,18 @@
 package com.rabimi.javaskinchanger
 
 import android.content.Context
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
-import java.io.File
 import com.bumptech.glide.Glide
 
 class SkinAdapter(
     private val context: Context,
-    private val skins: List<File>
-) : RecyclerView.Adapter<SkinAdapter.ViewHolder>() { // ←ここを明示的に
+    private val skins: List<Uri>
+) : RecyclerView.Adapter<SkinAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.skinImageView)
@@ -25,9 +25,8 @@ class SkinAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val skinFile = skins[position]
         Glide.with(context)
-            .load(skinFile)
+            .load(skins[position])
             .into(holder.imageView)
     }
 
