@@ -27,7 +27,7 @@ jobs:
 
       # ビルド
       - name: Build Debug APK
-        run: gradle assembleDebug
+        run: gradle clean assembleDebug
 
       # 成果物アップロード
       - name: Upload APK
