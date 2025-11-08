@@ -10,13 +10,17 @@
         android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
 
         <!-- 起動画面 -->
-        <activity android:name=".WelcomeActivity" android:exported="true">
+        <activity
+            android:name=".WelcomeActivity"
+            android:exported="true">
+
+            <!-- ランチャーとして起動 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- ここを追加！リダイレクトURIをこのActivityで受け取る -->
+            <!-- Custom Tabs / OAuth2 リダイレクト用 -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
