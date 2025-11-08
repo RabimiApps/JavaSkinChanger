@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- インターネット権限（WebViewでMicrosoftログイン用） -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -10,25 +9,22 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
-        <!-- メイン画面 -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"> <!-- ここを追加 -->
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <!-- スキンライブラリ画面 -->
         <activity
             android:name=".SkinLibraryActivity"
-            android:exported="false"/> <!-- 外部呼び出し不要なのでfalse -->
+            android:exported="false"/>
 
-        <!-- Microsoftログイン画面 -->
         <activity
             android:name=".LoginActivity"
-            android:exported="false"/> <!-- 外部呼び出し不要なのでfalse -->
+            android:exported="false"/>
 
     </application>
 
