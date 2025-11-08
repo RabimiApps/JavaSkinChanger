@@ -1,11 +1,11 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="16dp"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@color/white">
 
-    <!-- スキン表示 -->
     <ImageView
         android:id="@+id/skinImage"
         android:layout_width="200dp"
@@ -13,36 +13,32 @@
         android:scaleType="centerCrop"
         android:src="@mipmap/ic_launcher"/>
 
-    <!-- スキン選択ボタン -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSelect"
-        android:text="スキンを選択"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="スキンを選択"
         android:layout_marginTop="16dp"/>
 
-    <!-- アップロードボタン -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnUpload"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:text="アップロード"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:layout_marginTop="8dp"/>
 
-    <!-- スティーブ/アレックス切替ボタン -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSwitchModel"
-        android:text="スティーブ → アレックス"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="スティーブ → アレックス"
         android:layout_marginTop="8dp"/>
 
-    <!-- スキンライブラリボタン -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnLibrary"
-        android:text="スキンライブラリー"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="スキンライブラリー"
         android:layout_marginTop="8dp"/>
 
 </LinearLayout>
