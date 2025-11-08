@@ -1,0 +1,2 @@
+rootProject.name = "JavaSkinChanger"
+include ':app'
