@@ -1,7 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    id 'kotlin-kapt' // Glide のコンパイラ用
+    id 'kotlin-kapt'
 }
 
 android {
@@ -14,13 +14,11 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            isMinifyEnabled = false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -29,21 +27,35 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-
     kotlinOptions {
         jvmTarget = '17'
     }
 }
 
+repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://jitpack.io' } // GlideやAppAuthが見つからない場合用
+}
+
 dependencies {
+    // AndroidX
     implementation "androidx.core:core-ktx:1.12.0"
     implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "com.google.android.material:material:1.11.0"
-    implementation "androidx.constraintlayout:constraintlayout:2.1.4" // 安定版
-    implementation "com.github.bumptech.glide:glide:4.18.0"
-    kapt "com.github.bumptech.glide:compiler:4.18.0"
-    implementation "net.openid:appauth:0.12.0"
+    implementation "androidx.constraintlayout:constraintlayout:2.1.4"
 
+    // Kotlin
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.0"
+
+    // Glide (画像表示)
+    implementation "com.github.bumptech.glide:glide:4.16.0"
+    kapt "com.github.bumptech.glide:compiler:4.16.0"
+
+    // AppAuth (Microsoft OAuth)
+    implementation "net.openid:appauth:0.11.1"
+
+    // テスト
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.6'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
