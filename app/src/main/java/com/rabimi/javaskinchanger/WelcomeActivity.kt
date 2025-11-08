@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 
 class WelcomeActivity : AppCompatActivity() {
 
-    private val clientId = "00000000402b5328"
+    private val clientId = "00000000402b5328" // PojavLauncherと同じ公式Microsoft client_id
     private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
