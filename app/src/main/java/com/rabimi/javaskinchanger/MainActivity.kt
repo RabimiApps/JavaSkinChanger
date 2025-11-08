@@ -72,4 +72,14 @@ class MainActivity : AppCompatActivity() {
 
     // スキン選択結果
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(request
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { uri ->
+                selectedUri = uri
+                // 画像を ImageView に表示
+                Glide.with(this).load(uri).into(skinImage)
+            }
+        }
+    }
+}
