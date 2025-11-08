@@ -10,8 +10,7 @@
         android:id="@+id/skinImage"
         android:layout_width="200dp"
         android:layout_height="300dp"
-        android:scaleType="centerCrop"
-        android:src="@mipmap/ic_launcher"/>
+        android:scaleType="centerCrop"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSelect"
