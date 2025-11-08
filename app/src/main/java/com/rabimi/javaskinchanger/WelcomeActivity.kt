@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.browser.customtabs.CustomTabsIntent
@@ -21,8 +20,6 @@ class WelcomeActivity : AppCompatActivity() {
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     private lateinit var btnNext: Button
-    private lateinit var txtStatus: TextView
-
     private val mainScope = MainScope()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +27,6 @@ class WelcomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_welcome)
 
         btnNext = findViewById(R.id.btnNext)
-        txtStatus = findViewById(R.id.txtStatus)
 
         btnNext.setOnClickListener {
             val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
@@ -44,7 +40,6 @@ class WelcomeActivity : AppCompatActivity() {
             customTabsIntent.launchUrl(this, Uri.parse(loginUrl))
         }
 
-        // アプリに戻ってきたときのリダイレクト処理
         handleRedirect(intent)
     }
 
@@ -61,10 +56,9 @@ class WelcomeActivity : AppCompatActivity() {
                     ?.split("=")?.get(1)
 
                 if (token != null) {
-                    txtStatus.text = "ログイン成功。ユーザー名取得中..."
                     fetchMinecraftUsername(token)
                 } else {
-                    txtStatus.text = "トークン取得失敗"
+                    showErrorDialog("トークン取得失敗")
                 }
             }
         }
@@ -76,7 +70,7 @@ class WelcomeActivity : AppCompatActivity() {
             if (username != null) {
                 showConfirmDialog(username)
             } else {
-                txtStatus.text = "Minecraft API 取得失敗"
+                showErrorDialog("Minecraft API 取得失敗")
             }
         }
     }
@@ -93,8 +87,16 @@ class WelcomeActivity : AppCompatActivity() {
             }
             .setNegativeButton("いいえ") { dialog, _ ->
                 dialog.dismiss()
-                txtStatus.text = "ログインをキャンセルしました"
             }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun showErrorDialog(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle("エラー")
+            .setMessage(message)
+            .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
             .setCancelable(false)
             .show()
     }
@@ -139,12 +141,10 @@ class WelcomeActivity : AppCompatActivity() {
                     "TokenType": "JWT"
                 }
             """.trimIndent()
-            val os: OutputStream = conn.outputStream
-            os.write(body.toByteArray())
-            os.flush()
-            os.close()
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
+            val output: OutputStream = conn.outputStream
+            output.write(body.toByteArray())
+            output.flush()
+            output.close()
 
             if (conn.responseCode == 200) {
                 val response = conn.inputStream.bufferedReader().readText()
