@@ -4,20 +4,34 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.browser.customtabs.CustomTabsIntent
+import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class WelcomeActivity : AppCompatActivity() {
 
-    private val clientId = "00000000402b5328" // Minecraft 既知ClientID
+    private val clientId = "00000000402b5328" // Minecraft / Pojav と同じ既知ClientID
     private val redirectUri = "javaskinchanger://auth"
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
+
+    private lateinit var btnNext: Button
+    private lateinit var txtStatus: TextView
+
+    private val mainScope = MainScope()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_welcome)
 
-        val btnNext = findViewById<Button>(R.id.btnNext)
+        btnNext = findViewById(R.id.btnNext)
+        txtStatus = findViewById(R.id.txtStatus)
+
         btnNext.setOnClickListener {
             val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
                     "?client_id=$clientId" +
@@ -25,8 +39,125 @@ class WelcomeActivity : AppCompatActivity() {
                     "&redirect_uri=$redirectUri" +
                     "&scope=$scope"
 
-            val customTabsIntent = CustomTabsIntent.Builder().build()
+            val builder = CustomTabsIntent.Builder()
+            val customTabsIntent = builder.build()
             customTabsIntent.launchUrl(this, Uri.parse(loginUrl))
         }
+
+        // アプリに戻ってきたときのリダイレクト処理
+        handleRedirect(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleRedirect(intent)
+    }
+
+    private fun handleRedirect(intent: Intent?) {
+        intent?.data?.let { uri ->
+            if (uri.scheme == "javaskinchanger" && uri.host == "auth") {
+                val fragment = uri.fragment ?: ""
+                val token = fragment.split("&").find { it.startsWith("access_token=") }
+                    ?.split("=")?.get(1)
+
+                if (token != null) {
+                    txtStatus.text = "ログイン成功。ユーザー名取得中..."
+                    fetchMinecraftUsername(token)
+                } else {
+                    txtStatus.text = "トークン取得失敗"
+                }
+            }
+        }
+    }
+
+    private fun fetchMinecraftUsername(accessToken: String) {
+        mainScope.launch {
+            val username = withContext(Dispatchers.IO) { getMinecraftUsername(accessToken) }
+            if (username != null) {
+                showConfirmDialog(username)
+            } else {
+                txtStatus.text = "Minecraft API 取得失敗"
+            }
+        }
+    }
+
+    private fun showConfirmDialog(username: String) {
+        AlertDialog.Builder(this)
+            .setTitle("ログイン確認")
+            .setMessage("ログイン: $username\nこのアカウントでログインしますか？")
+            .setPositiveButton("はい") { _, _ ->
+                val intent = Intent(this@WelcomeActivity, MainActivity::class.java)
+                intent.putExtra("minecraft_username", username)
+                startActivity(intent)
+                finish()
+            }
+            .setNegativeButton("いいえ") { dialog, _ ->
+                dialog.dismiss()
+                txtStatus.text = "ログインをキャンセルしました"
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun getMinecraftUsername(accessToken: String): String? {
+        return try {
+            val xboxResponse = xboxLogin(accessToken)
+            val mcAccessToken = xboxResponse?.getString("Token") ?: return null
+
+            val mcUrl = URL("https://api.minecraftservices.com/minecraft/profile")
+            val conn = mcUrl.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $mcAccessToken")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+
+            if (conn.responseCode == 200) {
+                val response = conn.inputStream.bufferedReader().readText()
+                JSONObject(response).getString("name")
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun xboxLogin(accessToken: String): JSONObject? {
+        return try {
+            val url = URL("https://user.auth.xboxlive.com/user/authenticate")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            val body = """
+                {
+                    "Properties": {
+                        "AuthMethod": "RPS",
+                        "SiteName": "user.auth.xboxlive.com",
+                        "RpsTicket": "d=$accessToken"
+                    },
+                    "RelyingParty": "http://auth.xboxlive.com",
+                    "TokenType": "JWT"
+                }
+            """.trimIndent()
+            val os: OutputStream = conn.outputStream
+            os.write(body.toByteArray())
+            os.flush()
+            os.close()
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+
+            if (conn.responseCode == 200) {
+                val response = conn.inputStream.bufferedReader().readText()
+                JSONObject(response)
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    override fun onDestroy() {
+        mainScope.cancel()
+        super.onDestroy()
     }
 }
