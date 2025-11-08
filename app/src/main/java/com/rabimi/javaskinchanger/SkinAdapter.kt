@@ -25,9 +25,14 @@ class SkinAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        Glide.with(context)
-            .load(skins[position])
-            .into(holder.imageView)
+        val uri = skins.getOrNull(position)
+        if (uri != null) {
+            Glide.with(context)
+                .load(uri)
+                .into(holder.imageView)
+        } else {
+            holder.imageView.setImageResource(R.mipmap.ic_launcher) // デフォルト画像
+        }
     }
 
     override fun getItemCount(): Int = skins.size
