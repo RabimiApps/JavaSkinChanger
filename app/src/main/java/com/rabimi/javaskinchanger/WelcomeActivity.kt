@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -12,8 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 
 class WelcomeActivity : AppCompatActivity() {
 
-    private val clientId = "00000000402b5328" // PojavLauncherと同じ公式Microsoft client_id
-    private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
+    private val redirectUri = "https://login.live.com/oauth20_desktop.srf" // Minecraft公式リダイレクト
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -23,55 +21,36 @@ class WelcomeActivity : AppCompatActivity() {
 
         val btnNext = findViewById<Button>(R.id.btnNext)
         btnNext.setOnClickListener {
-            startMicrosoftLogin()
-        }
-    }
+            val webView = WebView(this)
+            webView.settings.javaScriptEnabled = true
+            setContentView(webView)
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun startMicrosoftLogin() {
-        val webView = WebView(this)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true // ← これないとログイン画面が真っ白になることがある
-        setContentView(webView)
+            // 公式 Microsoft ログイン URL（Pojav方式）
+            val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
+                    "?client_id=00000000402b5328" +   // Minecraft 用既知 ClientID
+                    "&response_type=token" +
+                    "&redirect_uri=$redirectUri" +
+                    "&scope=$scope"
 
-        val loginUrl = Uri.Builder()
-            .scheme("https")
-            .authority("login.live.com")
-            .path("oauth20_authorize.srf")
-            .appendQueryParameter("client_id", clientId)
-            .appendQueryParameter("response_type", "token")
-            .appendQueryParameter("redirect_uri", redirectUri)
-            .appendQueryParameter("scope", scope)
-            .build()
-            .toString()
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val url = request?.url.toString()
-                if (url.startsWith(redirectUri) && url.contains("#access_token=")) {
-                    val token = Uri.parse(url.replace("#", "?")).getQueryParameter("access_token")
-                    if (token != null) {
-                        saveTokenAndContinue(token)
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                    if (url.startsWith(redirectUri)) {
+                        // URL に #access_token=XXXX が含まれる
+                        if (url.contains("#access_token=")) {
+                            val token = Uri.parse(url.replace("#", "?"))
+                                .getQueryParameter("access_token")
+                            if (token != null) {
+                                saveTokenAndContinue(token)
+                            }
+                        }
                         return true
                     }
+                    return false
                 }
-                return false
             }
 
-            // 古いAndroid互換用
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                if (url != null && url.startsWith(redirectUri) && url.contains("#access_token=")) {
-                    val token = Uri.parse(url.replace("#", "?")).getQueryParameter("access_token")
-                    if (token != null) {
-                        saveTokenAndContinue(token)
-                        return true
-                    }
-                }
-                return false
-            }
+            webView.loadUrl(loginUrl)
         }
-
-        webView.loadUrl(loginUrl)
     }
 
     private fun saveTokenAndContinue(token: String) {
