@@ -11,7 +11,7 @@ import androidx.browser.customtabs.CustomTabsIntent
 class WelcomeActivity : AppCompatActivity() {
 
     private val clientId = "00000000402b5328" // Minecraft公式ClientID
-    private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
+    private val redirectUri = "javaskinchanger://auth"
     private val scope = "XboxLive.signin offline_access"
 
     override fun onCreate(savedInstanceState: Bundle?) {
