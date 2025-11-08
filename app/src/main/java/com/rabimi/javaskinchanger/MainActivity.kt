@@ -4,33 +4,35 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.button.MaterialButton
 import com.bumptech.glide.Glide
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var skinImage: ImageView
-    private lateinit var btnSelect: Button
-    private lateinit var btnUpload: Button
-    private lateinit var btnSwitchModel: Button
-    private lateinit var btnLibrary: Button
+    private lateinit var btnSelect: MaterialButton
+    private lateinit var btnUpload: MaterialButton
+    private lateinit var btnSwitchModel: MaterialButton
+    private lateinit var btnLibrary: MaterialButton
 
     private var selectedUri: Uri? = null
-    private var isSteve = true  // true = スティーブ, false = アレックス
+    private var isSteve = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // ビューの取得
         skinImage = findViewById(R.id.skinImage)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
         btnSwitchModel = findViewById(R.id.btnSwitchModel)
         btnLibrary = findViewById(R.id.btnLibrary)
+
+        // 初期状態
+        btnUpload.isEnabled = false
 
         // スキン選択
         btnSelect.setOnClickListener {
@@ -43,42 +45,34 @@ class MainActivity : AppCompatActivity() {
         btnUpload.setOnClickListener {
             selectedUri?.let {
                 val name = System.currentTimeMillis().toString()
-                // ローカル保存
                 val saved = SkinStorage.saveSkin(this, it, name)
-                if (saved) {
-                    Toast.makeText(this, "スキンを保存しました", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "スキン保存に失敗しました", Toast.LENGTH_SHORT).show()
-                }
-                // アップロード処理（仮）
+                if (saved) Toast.makeText(this, "スキンを保存しました", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this, "スキン保存に失敗しました", Toast.LENGTH_SHORT).show()
                 SkinManager.uploadSkin(this, it, isSteve)
-            } ?: run {
-                Toast.makeText(this, "スキンを選択してください", Toast.LENGTH_SHORT).show()
+                btnUpload.isEnabled = false
             }
         }
 
-        // スティーブ/アレックス切替
+        // モデル切替
         btnSwitchModel.setOnClickListener {
             isSteve = !isSteve
             btnSwitchModel.text = if (isSteve) "スティーブ → アレックス" else "アレックス → スティーブ"
         }
 
-        // ライブラリ表示
+        // スキンライブラリー
         btnLibrary.setOnClickListener {
-            val intent = Intent(this, SkinLibraryActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, SkinLibraryActivity::class.java))
         }
     }
 
-    // スキン選択結果
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
-                selectedUri = uri
-                // 画像を ImageView に表示
-                Glide.with(this).load(uri).into(skinImage)
+            selectedUri = data?.data
+            selectedUri?.let {
+                Glide.with(this).load(it).into(skinImage)
+                btnSelect.visibility = ImageView.GONE
+                btnUpload.isEnabled = true
             }
         }
     }
