@@ -11,9 +11,10 @@ import androidx.appcompat.app.AppCompatActivity
 
 class WelcomeActivity : AppCompatActivity() {
 
-    // PojavLauncherと同様に既知のClientIDを使用
+    // Minecraft公式用既知ClientID（PojavLauncherと同じ）
     private val clientId = "00000000402b5328"
-    private val redirectUri = "javaskinchanger://auth" // マニフェストに対応済み
+    // 公式ClientIDの場合はMicrosoftが決めたリダイレクトURIを使用
+    private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -27,7 +28,7 @@ class WelcomeActivity : AppCompatActivity() {
             webView.settings.javaScriptEnabled = true
             setContentView(webView)
 
-            // Microsoft OAuth2 (Minecraft 公式経由)
+            // Microsoft OAuth2 認証ページ URL
             val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
                     "?client_id=$clientId" +
                     "&response_type=token" +
@@ -43,6 +44,13 @@ class WelcomeActivity : AppCompatActivity() {
                                 .getQueryParameter("access_token")
                             if (token != null) {
                                 saveTokenAndContinue(token)
+                            } else {
+                                // トークンが無い場合は失敗としてToast表示
+                                android.widget.Toast.makeText(
+                                    this@WelcomeActivity,
+                                    "ログイン失敗",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                         return true
