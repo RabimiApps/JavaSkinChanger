@@ -16,7 +16,7 @@ import java.net.URL
 class WelcomeActivity : AppCompatActivity() {
 
     private val clientId = "00000000402b5328" // Minecraft / Pojav と同じ既知ClientID
-    private val redirectUri = "javaskinchanger://auth"
+    private val redirectUri = "https://login.live.com/oauth20_desktop.srf" // 公式推奨の redirect_uri
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     private lateinit var btnNext: Button
@@ -50,16 +50,15 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun handleRedirect(intent: Intent?) {
         intent?.data?.let { uri ->
-            if (uri.scheme == "javaskinchanger" && uri.host == "auth") {
-                val fragment = uri.fragment ?: ""
-                val token = fragment.split("&").find { it.startsWith("access_token=") }
-                    ?.split("=")?.get(1)
+            // Desktop redirect は fragment に token が入る
+            val fragment = uri.fragment ?: ""
+            val token = fragment.split("&").find { it.startsWith("access_token=") }
+                ?.split("=")?.get(1)
 
-                if (token != null) {
-                    fetchMinecraftUsername(token)
-                } else {
-                    showErrorDialog("トークン取得失敗")
-                }
+            if (token != null) {
+                fetchMinecraftUsername(token)
+            } else {
+                showErrorDialog("トークン取得失敗")
             }
         }
     }
@@ -141,15 +140,13 @@ class WelcomeActivity : AppCompatActivity() {
                     "TokenType": "JWT"
                 }
             """.trimIndent()
-            val output: OutputStream = conn.outputStream
-            output.write(body.toByteArray())
-            output.flush()
-            output.close()
+            val out: OutputStream = conn.outputStream
+            out.write(body.toByteArray())
+            out.flush()
+            out.close()
 
-            if (conn.responseCode == 200) {
-                val response = conn.inputStream.bufferedReader().readText()
-                JSONObject(response)
-            } else null
+            val response = conn.inputStream.bufferedReader().readText()
+            JSONObject(response)
         } catch (e: Exception) {
             e.printStackTrace()
             null
