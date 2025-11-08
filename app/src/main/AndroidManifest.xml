@@ -1,1 +1,30 @@
- 
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.rabimi.javaskinchanger">
+
+    <!-- インターネット権限（WebViewでMicrosoftログイン用） -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <application
+        android:allowBackup="true"
+        android:label="JavaSkinChanger"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+
+        <!-- メイン画面 -->
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- スキンライブラリ画面 -->
+        <activity android:name=".SkinLibraryActivity"/>
+
+        <!-- Microsoftログイン画面 -->
+        <activity android:name=".LoginActivity"/>
+    </application>
+
+</manifest>
