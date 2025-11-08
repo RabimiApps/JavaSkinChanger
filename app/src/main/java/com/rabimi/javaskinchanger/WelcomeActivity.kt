@@ -2,8 +2,8 @@ package com.rabimi.javaskinchanger
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.button.MaterialButton
 
 class WelcomeActivity : AppCompatActivity() {
 
@@ -11,10 +11,9 @@ class WelcomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_welcome)
 
-        val btnNext = findViewById<MaterialButton>(R.id.btnNext)
+        val btnNext: Button = findViewById(R.id.btnNext)
         btnNext.setOnClickListener {
-            val intent = Intent(this, LoginActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
     }
