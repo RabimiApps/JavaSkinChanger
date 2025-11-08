@@ -1,6 +1,5 @@
 package com.rabimi.javaskinchanger
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -15,34 +14,29 @@ class MainActivity : AppCompatActivity() {
     private lateinit var skinImage: ImageView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
-    private lateinit var btnSwitchModel: Button
     private lateinit var btnLibrary: Button
 
     private var selectedUri: Uri? = null
-    private var isSteve = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // ログイン済みならスキン画面へ
-        if (MicrosoftAuth.isLoggedIn(this)) {
-            setContentView(R.layout.activity_main)
-        } else {
-            // 初回はようこそ画面へ
-            startActivity(Intent(this, WelcomeActivity::class.java))
-            finish()
-            return
-        }
+        setContentView(R.layout.activity_main)
 
         skinImage = findViewById(R.id.skinImage)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
-        btnSwitchModel = findViewById(R.id.btnSwitchModel)
         btnLibrary = findViewById(R.id.btnLibrary)
 
-        // 最初にログイン済みアカウントのスキンを表示
-        val currentSkin = SkinManager.getCurrentSkin(this)
-        Glide.with(this).load(currentSkin).into(skinImage)
+        val sp = getSharedPreferences("prefs", MODE_PRIVATE)
+        val token = sp.getString("microsoft_token", null)
+
+        if (token != null) {
+            loadCurrentSkin(token)
+        } else {
+            Toast.makeText(this, "ログインしてください", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, WelcomeActivity::class.java))
+            finish()
+        }
 
         btnSelect.setOnClickListener {
             val intent = Intent(Intent.ACTION_GET_CONTENT)
@@ -51,21 +45,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnUpload.setOnClickListener {
-            selectedUri?.let {
-                val name = System.currentTimeMillis().toString()
-                val saved = SkinStorage.saveSkin(this, it, name)
-                if (saved) Toast.makeText(this, "スキンを保存しました", Toast.LENGTH_SHORT).show()
-                else Toast.makeText(this, "スキン保存に失敗しました", Toast.LENGTH_SHORT).show()
-
-                SkinManager.uploadSkin(this, it, isSteve)
-            } ?: run {
-                Toast.makeText(this, "スキンを選択してください", Toast.LENGTH_SHORT).show()
+            if (selectedUri != null) {
+                val spToken = sp.getString("microsoft_token", null)
+                if (spToken != null) {
+                    MinecraftSkinManager.uploadSkin(this, selectedUri!!, spToken)
+                    Toast.makeText(this, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
+                }
             }
-        }
-
-        btnSwitchModel.setOnClickListener {
-            isSteve = !isSteve
-            btnSwitchModel.text = if (isSteve) "スティーブ → アレックス" else "アレックス → スティーブ"
         }
 
         btnLibrary.setOnClickListener {
@@ -73,12 +59,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadCurrentSkin(token: String) {
+        // 仮: Minecraft Skin URL を取得して表示する処理
+        val skinUrl = MinecraftSkinManager.getCurrentSkinUrl(token)
+        Glide.with(this).load(skinUrl).into(skinImage)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
+        if (requestCode == 1 && resultCode == RESULT_OK) {
             selectedUri = data?.data
-            selectedUri?.let { Glide.with(this).load(it).into(skinImage) }
-            btnSelect.visibility = Button.GONE
+            selectedUri?.let {
+                Glide.with(this).load(it).into(skinImage)
+                btnSelect.visibility = Button.GONE
+                btnUpload.visibility = Button.VISIBLE
+            }
         }
     }
 }
