@@ -16,6 +16,7 @@ android {
         versionName "1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
+        // OAuth2 リダイレクト用プレースホルダー
         manifestPlaceholders = [appAuthRedirectScheme: "javaskinchanger"]
     }
 
