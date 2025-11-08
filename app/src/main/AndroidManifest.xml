@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ネットワークアクセス -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
@@ -27,11 +28,18 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="javaskinchanger" android:host="auth" />
             </intent-filter>
+
         </activity>
 
-        <!-- 他の画面 -->
-        <activity android:name=".MainActivity" android:exported="false" />
-        <activity android:name=".SkinLibraryActivity" android:exported="false" />
+        <!-- メイン画面 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <!-- スキンライブラリ画面 -->
+        <activity
+            android:name=".SkinLibraryActivity"
+            android:exported="false" />
 
     </application>
 
