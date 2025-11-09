@@ -16,7 +16,7 @@ class WelcomeActivity : AppCompatActivity() {
 
     private val clientId = "0000000048183522"
     private val redirectUri = "ms-xal-0000000048183522://auth"
-    private val scope = "XboxLive.signin offline_access" // 最新スコープ
+    private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     private lateinit var btnNext: Button
     private val mainScope = MainScope()
@@ -26,7 +26,11 @@ class WelcomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_welcome)
 
         btnNext = findViewById(R.id.btnNext)
+
+        println("[Debug] onCreate called")
+
         btnNext.setOnClickListener {
+            println("[Debug] btnNext clicked")
             val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
                     "?client_id=$clientId" +
                     "&response_type=token" +
@@ -34,6 +38,7 @@ class WelcomeActivity : AppCompatActivity() {
                     "&scope=$scope" +
                     "&prompt=select_account"
 
+            println("[Debug] Launching OAuth URL: $loginUrl")
             CustomTabsIntent.Builder().build().launchUrl(this, Uri.parse(loginUrl))
         }
 
@@ -42,41 +47,51 @@ class WelcomeActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+        println("[Debug] onNewIntent called")
         handleRedirect(intent)
     }
 
     private fun handleRedirect(intent: Intent?) {
         intent?.data?.let { uri ->
+            println("[Debug] handleRedirect with URI: $uri")
             if (uri.toString().startsWith(redirectUri)) {
                 val fragment = uri.fragment ?: ""
+                println("[Debug] URI Fragment: $fragment")
                 val token = fragment.split("&").find { it.startsWith("access_token=") }
                     ?.substringAfter("=")
-                println("MS Token: $token") // デバッグ用
                 if (token != null) {
+                    println("[Debug] Access Token: $token")
                     fetchMinecraftUsername(token)
                 } else {
+                    println("[Debug] Access token not found in fragment")
                     showErrorDialog("トークン取得失敗")
                 }
+            } else {
+                println("[Debug] URI does not match redirectUri")
             }
         }
     }
 
     private fun fetchMinecraftUsername(msToken: String) {
+        println("[Debug] fetchMinecraftUsername called with msToken: $msToken")
         mainScope.launch {
             val username = withContext(Dispatchers.IO) { getMinecraftUsername(msToken) }
             if (username != null) {
+                println("[Debug] Minecraft Username: $username")
                 showConfirmDialog(username)
             } else {
+                println("[Debug] Minecraft API取得失敗")
                 showErrorDialog("Minecraft API 取得失敗")
             }
         }
     }
 
     private fun getMinecraftUsername(msToken: String): String? {
-        try {
-            // 1️⃣ Xbox Live Authentication
+        return try {
+            println("[Debug] Starting Xbox Live Authentication")
             val xblResp = postJson(
-                URL("https://user.auth.xboxlive.com/user/authenticate"), """
+                URL("https://user.auth.xboxlive.com/user/authenticate"),
+                """
                 {
                     "Properties": {
                         "AuthMethod": "RPS",
@@ -86,23 +101,23 @@ class WelcomeActivity : AppCompatActivity() {
                     "RelyingParty": "http://auth.xboxlive.com",
                     "TokenType": "JWT"
                 }
-            """.trimIndent()
-            )
-            if (xblResp == null) {
-                println("❌ Xbox Live Authentication 失敗")
+                """.trimIndent()
+            ) ?: run {
+                println("[Debug] Xbox Live Authentication failed")
                 return null
             }
 
             val xblToken = xblResp.getString("Token")
             val userHash = xblResp.getJSONObject("DisplayClaims")
                 .getJSONArray("xui").getJSONObject(0).getString("uhs")
-            println("✅ Xbox Live OK")
-            println("XBL Token: $xblToken")
-            println("User Hash: $userHash")
 
-            // 2️⃣ XSTS Token
+            println("[Debug] XBL Token: $xblToken")
+            println("[Debug] User Hash: $userHash")
+
+            println("[Debug] Starting XSTS Authentication")
             val xstsResp = postJson(
-                URL("https://xsts.auth.xboxlive.com/xsts/authorize"), """
+                URL("https://xsts.auth.xboxlive.com/xsts/authorize"),
+                """
                 {
                     "Properties": {
                         "SandboxId": "RETAIL",
@@ -111,18 +126,16 @@ class WelcomeActivity : AppCompatActivity() {
                     "RelyingParty": "rp://api.minecraftservices.com",
                     "TokenType": "JWT"
                 }
-            """.trimIndent()
-            )
-            if (xstsResp == null) {
-                println("❌ XSTS Token 取得失敗")
+                """.trimIndent()
+            ) ?: run {
+                println("[Debug] XSTS Authentication failed")
                 return null
             }
 
             val xstsToken = xstsResp.getString("Token")
-            println("✅ XSTS Token OK")
-            println("XSTS Token: $xstsToken")
+            println("[Debug] XSTS Token: $xstsToken")
 
-            // 3️⃣ Minecraft Access Token
+            println("[Debug] Starting Minecraft Authentication")
             val mcAuthUrl = URL("https://api.minecraftservices.com/authentication/login_with_xbox")
             val mcAuthBody = """{"identityToken":"XBL3.0 x=$userHash;$xstsToken"}"""
             val mcConn = mcAuthUrl.openConnection() as HttpURLConnection
@@ -132,15 +145,14 @@ class WelcomeActivity : AppCompatActivity() {
             mcConn.outputStream.use { it.write(mcAuthBody.toByteArray()) }
 
             val mcToken = if (mcConn.responseCode == 200) {
-                JSONObject(mcConn.inputStream.bufferedReader().readText()).getString("access_token")
+                val resp = JSONObject(mcConn.inputStream.bufferedReader().readText())
+                resp.getString("access_token").also { println("[Debug] Minecraft Token: $it") }
             } else {
-                println("❌ Minecraft Access Token 取得失敗: ${mcConn.responseCode}")
+                println("[Debug] Minecraft Authentication failed with code ${mcConn.responseCode}")
                 return null
             }
-            println("✅ Minecraft Access Token OK")
-            println("Minecraft Token: $mcToken")
 
-            // 4️⃣ Minecraft Profile
+            println("[Debug] Fetching Minecraft Profile")
             val mcUrl = URL("https://api.minecraftservices.com/minecraft/profile")
             val conn = mcUrl.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
@@ -151,22 +163,22 @@ class WelcomeActivity : AppCompatActivity() {
             return if (conn.responseCode == 200) {
                 val response = conn.inputStream.bufferedReader().readText()
                 val username = JSONObject(response).getString("name")
-                println("✅ Minecraft Profile OK: $username")
+                println("[Debug] Minecraft Profile Response: $response")
                 username
             } else {
-                println("❌ Minecraft Profile 取得失敗: ${conn.responseCode}")
+                println("[Debug] Minecraft Profile fetch failed with code ${conn.responseCode}")
                 null
             }
-
         } catch (e: Exception) {
             e.printStackTrace()
-            println("❌ Exception 発生: ${e.message}")
-            return null
+            println("[Debug] Exception in getMinecraftUsername: ${e.message}")
+            null
         }
     }
 
     private fun postJson(url: URL, body: String): JSONObject? {
-        try {
+        return try {
+            println("[Debug] POST JSON to $url")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.doOutput = true
@@ -175,19 +187,22 @@ class WelcomeActivity : AppCompatActivity() {
 
             return if (conn.responseCode == 200) {
                 val resp = conn.inputStream.bufferedReader().readText()
+                println("[Debug] Response code: ${conn.responseCode}")
+                println("[Debug] Response body: $resp")
                 JSONObject(resp)
             } else {
-                println("❌ POST リクエスト失敗: ${conn.responseCode} -> $url")
+                println("[Debug] Request failed with code ${conn.responseCode}")
                 null
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            println("❌ POST Exception: ${e.message} -> $url")
-            return null
+            println("[Debug] Exception in postJson: ${e.message}")
+            null
         }
     }
 
     private fun showConfirmDialog(username: String) {
+        println("[Debug] showConfirmDialog called with username: $username")
         AlertDialog.Builder(this)
             .setTitle("ログイン確認")
             .setMessage("ログイン: $username\nこのアカウントでログインしますか？")
@@ -203,6 +218,7 @@ class WelcomeActivity : AppCompatActivity() {
     }
 
     private fun showErrorDialog(msg: String) {
+        println("[Debug] showErrorDialog: $msg")
         AlertDialog.Builder(this)
             .setTitle("エラー")
             .setMessage(msg)
@@ -212,6 +228,7 @@ class WelcomeActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        println("[Debug] onDestroy called")
         mainScope.cancel()
         super.onDestroy()
     }
