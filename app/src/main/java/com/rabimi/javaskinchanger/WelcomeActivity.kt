@@ -75,7 +75,7 @@ class WelcomeActivity : AppCompatActivity() {
             if (result != null) {
                 val (mcToken, username) = result
 
-                // 🔹 トークン保存
+                // 🔹 SharedPreferences に保存
                 getSharedPreferences("prefs", MODE_PRIVATE)
                     .edit()
                     .putString("minecraft_token", mcToken)
@@ -138,7 +138,6 @@ class WelcomeActivity : AppCompatActivity() {
             ) ?: return null
 
             val username = mcProfileResp.getString("name")
-
             mcToken to username
         } catch (e: Exception) {
             e.printStackTrace()
@@ -159,6 +158,7 @@ class WelcomeActivity : AppCompatActivity() {
             val resp = conn.inputStream.bufferedReader().readText()
             if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
         } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
     }
@@ -174,6 +174,7 @@ class WelcomeActivity : AppCompatActivity() {
             val resp = conn.inputStream.bufferedReader().readText()
             if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
         } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
     }
