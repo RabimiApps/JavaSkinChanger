@@ -14,7 +14,6 @@ import java.net.URL
 
 class WelcomeActivity : AppCompatActivity() {
 
-    // Java Edition 用 ClientId と Redirect URI
     private val clientId = "00000000402b5328"
     private val redirectUri = "ms-xal-00000000402b5328://auth"
     private val scope = "XboxLive.signin offline_access"
@@ -27,6 +26,16 @@ class WelcomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_welcome)
 
         btnNext = findViewById(R.id.btnNext)
+
+        // 🔹 既にログイン済みならスキップ
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val savedToken = prefs.getString("microsoft_token", null)
+        if (savedToken != null) {
+            println("[Debug] Token found, skipping to MainActivity")
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
 
         btnNext.setOnClickListener {
             val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
@@ -63,19 +72,25 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun fetchMinecraftTokenAndUsername(msToken: String) {
         mainScope.launch {
-            val result = withContext(Dispatchers.IO) { getMinecraftTokenAndUsername(msToken) }
+            val result = withContext(Dispatchers.IO) { getMinecraftAuth(msToken) }
             if (result != null) {
-                val (username, mcToken) = result
-                showConfirmDialog(username, mcToken)
+                val (mcToken, username) = result
+
+                // 🔹 トークン保存
+                getSharedPreferences("prefs", MODE_PRIVATE)
+                    .edit()
+                    .putString("microsoft_token", mcToken)
+                    .apply()
+
+                showConfirmDialog(username)
             } else {
                 showErrorDialog("Minecraft API 取得失敗")
             }
         }
     }
 
-    private fun getMinecraftTokenAndUsername(msToken: String): Pair<String, String>? {
+    private fun getMinecraftAuth(msToken: String): Pair<String, String>? {
         return try {
-            // Xbox Live 認証
             val xblResp = postJson(
                 URL("https://user.auth.xboxlive.com/user/authenticate"),
                 """
@@ -95,7 +110,6 @@ class WelcomeActivity : AppCompatActivity() {
             val userHash = xblResp.getJSONObject("DisplayClaims")
                 .getJSONArray("xui").getJSONObject(0).getString("uhs")
 
-            // XSTS 認証
             val xstsResp = postJson(
                 URL("https://xsts.auth.xboxlive.com/xsts/authorize"),
                 """
@@ -112,7 +126,6 @@ class WelcomeActivity : AppCompatActivity() {
 
             val xstsToken = xstsResp.getString("Token")
 
-            // Minecraft API 認証
             val mcAuthResp = postJson(
                 URL("https://api.minecraftservices.com/authentication/login_with_xbox"),
                 """{"identityToken":"XBL3.0 x=$userHash;$xstsToken"}"""
@@ -120,14 +133,14 @@ class WelcomeActivity : AppCompatActivity() {
 
             val mcToken = mcAuthResp.getString("access_token")
 
-            // Minecraft プロフィール取得
             val mcProfileResp = getJson(
                 URL("https://api.minecraftservices.com/minecraft/profile"),
                 mcToken
             ) ?: return null
 
             val username = mcProfileResp.getString("name")
-            Pair(username, mcToken)
+
+            mcToken to username
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -144,15 +157,9 @@ class WelcomeActivity : AppCompatActivity() {
             conn.readTimeout = 10000
             conn.outputStream.use { it.write(body.toByteArray()) }
 
-            val resp = try {
-                conn.inputStream.bufferedReader().readText()
-            } catch (ee: Exception) {
-                conn.errorStream?.bufferedReader()?.readText() ?: ""
-            }
-
+            val resp = conn.inputStream.bufferedReader().readText()
             if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
         } catch (e: Exception) {
-            e.printStackTrace()
             null
         }
     }
@@ -165,31 +172,22 @@ class WelcomeActivity : AppCompatActivity() {
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
 
-            val resp = try {
-                conn.inputStream.bufferedReader().readText()
-            } catch (ee: Exception) {
-                conn.errorStream?.bufferedReader()?.readText() ?: ""
-            }
-
+            val resp = conn.inputStream.bufferedReader().readText()
             if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
         } catch (e: Exception) {
-            e.printStackTrace()
             null
         }
     }
 
-    private fun showConfirmDialog(username: String, mcToken: String) {
+    private fun showConfirmDialog(username: String) {
         AlertDialog.Builder(this)
             .setTitle("ログイン確認")
             .setMessage("ログイン: $username\nこのアカウントでログインしますか？")
             .setPositiveButton("はい") { _, _ ->
-                val intent = Intent(this, MainActivity::class.java)
-                intent.putExtra("minecraft_username", username)
-                intent.putExtra("minecraft_token", mcToken)
-                startActivity(intent)
+                startActivity(Intent(this, MainActivity::class.java))
                 finish()
             }
-            .setNegativeButton("いいえ") { d, _ -> d.dismiss() }
+            .setNegativeButton("いいえ", null)
             .setCancelable(false)
             .show()
     }
