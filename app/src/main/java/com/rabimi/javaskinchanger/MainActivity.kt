@@ -8,6 +8,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
+import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,6 +18,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLibrary: Button
 
     private var selectedUri: Uri? = null
+    private var mcToken: String? = null
+    private val mainScope = MainScope()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,15 +30,27 @@ class MainActivity : AppCompatActivity() {
         btnUpload = findViewById(R.id.btnUpload)
         btnLibrary = findViewById(R.id.btnLibrary)
 
-        val sp = getSharedPreferences("prefs", MODE_PRIVATE)
-        val token = sp.getString("microsoft_token", null)
+        // WelcomeActivity からの minecraft_token を受け取る
+        mcToken = intent.getStringExtra("minecraft_token")
+        val username = intent.getStringExtra("minecraft_username")
 
-        if (token != null) {
-            loadCurrentSkin(token)
+        val sp = getSharedPreferences("prefs", MODE_PRIVATE)
+
+        if (mcToken != null) {
+            // Token を保存しておく
+            sp.edit().putString("minecraft_token", mcToken).apply()
+            loadCurrentSkin(mcToken!!)
         } else {
-            Toast.makeText(this, "ログインしてください", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(this, WelcomeActivity::class.java))
-            finish()
+            // 既存 token がある場合はそれを使用
+            mcToken = sp.getString("minecraft_token", null)
+            if (mcToken != null) {
+                loadCurrentSkin(mcToken!!)
+            } else {
+                Toast.makeText(this, "ログインしてください", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, WelcomeActivity::class.java))
+                finish()
+                return
+            }
         }
 
         btnSelect.setOnClickListener {
@@ -45,11 +60,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnUpload.setOnClickListener {
-            if (selectedUri != null) {
-                val spToken = sp.getString("microsoft_token", null)
-                if (spToken != null) {
-                    MinecraftSkinManager.uploadSkin(this, selectedUri!!, spToken)
-                    Toast.makeText(this, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
+            if (selectedUri != null && mcToken != null) {
+                mainScope.launch {
+                    val success = withContext(Dispatchers.IO) {
+                        MinecraftSkinManager.uploadSkin(this@MainActivity, selectedUri!!, mcToken!!)
+                    }
+                    if (success) {
+                        Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
+                        loadCurrentSkin(mcToken!!)
+                        btnSelect.visibility = Button.VISIBLE
+                        btnUpload.visibility = Button.GONE
+                    } else {
+                        Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -60,9 +83,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadCurrentSkin(token: String) {
-        // 仮: Minecraft Skin URL を取得して表示する処理
-        val skinUrl = MinecraftSkinManager.getCurrentSkinUrl(token)
-        Glide.with(this).load(skinUrl).into(skinImage)
+        mainScope.launch {
+            val skinUrl = withContext(Dispatchers.IO) {
+                MinecraftSkinManager.getCurrentSkinUrl(token)
+            }
+            Glide.with(this@MainActivity).load(skinUrl).into(skinImage)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -75,5 +101,10 @@ class MainActivity : AppCompatActivity() {
                 btnUpload.visibility = Button.VISIBLE
             }
         }
+    }
+
+    override fun onDestroy() {
+        mainScope.cancel()
+        super.onDestroy()
     }
 }
