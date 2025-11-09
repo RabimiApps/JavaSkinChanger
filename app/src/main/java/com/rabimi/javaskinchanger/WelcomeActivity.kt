@@ -15,7 +15,7 @@ import java.net.URL
 
 class WelcomeActivity : AppCompatActivity() {
 
-    private val clientId = "00000000402b5328" // Minecraft / Pojav と同じ既知ClientID
+    private val clientId = "00000000402b5328" // Minecraft/Pojav で使われている既知ClientID
     private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
@@ -51,7 +51,6 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun handleRedirect(intent: Intent?) {
         intent?.data?.let { uri ->
-            // login.live.com/oauth20_desktop.srf に戻ってきた場合
             if (uri.toString().startsWith(redirectUri)) {
                 val fragment = uri.fragment ?: ""
                 val token = fragment.split("&").find { it.startsWith("access_token=") }
@@ -105,7 +104,6 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun getMinecraftUsername(accessToken: String): String? {
         return try {
-            // Xbox 認証 → Minecraft 認証
             val xboxResponse = xboxLogin(accessToken)
             val mcAccessToken = xboxResponse?.getString("Token") ?: return null
 
