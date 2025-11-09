@@ -53,7 +53,9 @@ class WelcomeActivity : AppCompatActivity() {
                     ?.substringAfter("=")
                 if (token != null) {
                     fetchMinecraftUsername(token)
-                } else showErrorDialog("トークン取得失敗")
+                } else {
+                    showErrorDialog("トークン取得失敗")
+                }
             }
         }
     }
@@ -69,82 +71,86 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun getMinecraftUsername(msToken: String): String? = try {
-        // 1️⃣ Xbox Live Authentication
-        val xblResp = postJson(URL("https://user.auth.xboxlive.com/user/authenticate"), """
-            {
-                "Properties": {
-                    "AuthMethod": "RPS",
-                    "SiteName": "user.auth.xboxlive.com",
-                    "RpsTicket": "d=$msToken"
-                },
-                "RelyingParty": "http://auth.xboxlive.com",
-                "TokenType": "JWT"
-            }
-        """.trimIndent()) ?: return null
+    private fun getMinecraftUsername(msToken: String): String? {
+        return try {
+            // 1️⃣ Xbox Live Authentication
+            val xblResp = postJson(URL("https://user.auth.xboxlive.com/user/authenticate"), """
+                {
+                    "Properties": {
+                        "AuthMethod": "RPS",
+                        "SiteName": "user.auth.xboxlive.com",
+                        "RpsTicket": "d=$msToken"
+                    },
+                    "RelyingParty": "http://auth.xboxlive.com",
+                    "TokenType": "JWT"
+                }
+            """.trimIndent()) ?: return null
 
-        val xblToken = xblResp.getString("Token")
-        val userHash = xblResp.getJSONObject("DisplayClaims")
-            .getJSONArray("xui").getJSONObject(0).getString("uhs")
+            val xblToken = xblResp.getString("Token")
+            val userHash = xblResp.getJSONObject("DisplayClaims")
+                .getJSONArray("xui").getJSONObject(0).getString("uhs")
 
-        // 2️⃣ XSTS Token
-        val xstsResp = postJson(URL("https://xsts.auth.xboxlive.com/xsts/authorize"), """
-            {
-                "Properties": {
-                    "SandboxId": "RETAIL",
-                    "UserTokens": ["$xblToken"]
-                },
-                "RelyingParty": "rp://api.minecraftservices.com",
-                "TokenType": "JWT"
-            }
-        """.trimIndent()) ?: return null
+            // 2️⃣ XSTS Token
+            val xstsResp = postJson(URL("https://xsts.auth.xboxlive.com/xsts/authorize"), """
+                {
+                    "Properties": {
+                        "SandboxId": "RETAIL",
+                        "UserTokens": ["$xblToken"]
+                    },
+                    "RelyingParty": "rp://api.minecraftservices.com",
+                    "TokenType": "JWT"
+                }
+            """.trimIndent()) ?: return null
 
-        val xstsToken = xstsResp.getString("Token")
+            val xstsToken = xstsResp.getString("Token")
 
-        // 3️⃣ Minecraft Access Token
-        val mcAuthUrl = URL("https://api.minecraftservices.com/authentication/login_with_xbox")
-        val mcAuthBody = """{"identityToken":"XBL3.0 x=$userHash;$xstsToken"}"""
-        val mcConn = mcAuthUrl.openConnection() as HttpURLConnection
-        mcConn.requestMethod = "POST"
-        mcConn.doOutput = true
-        mcConn.setRequestProperty("Content-Type", "application/json")
-        mcConn.outputStream.use { it.write(mcAuthBody.toByteArray()) }
+            // 3️⃣ Minecraft Access Token
+            val mcAuthUrl = URL("https://api.minecraftservices.com/authentication/login_with_xbox")
+            val mcAuthBody = """{"identityToken":"XBL3.0 x=$userHash;$xstsToken"}"""
+            val mcConn = mcAuthUrl.openConnection() as HttpURLConnection
+            mcConn.requestMethod = "POST"
+            mcConn.doOutput = true
+            mcConn.setRequestProperty("Content-Type", "application/json")
+            mcConn.outputStream.use { it.write(mcAuthBody.toByteArray()) }
 
-        val mcToken = if (mcConn.responseCode == 200) {
-            JSONObject(mcConn.inputStream.bufferedReader().readText()).getString("access_token")
-        } else return null
+            val mcToken = if (mcConn.responseCode == 200) {
+                JSONObject(mcConn.inputStream.bufferedReader().readText()).getString("access_token")
+            } else return null
 
-        // 4️⃣ Minecraft Profile
-        val mcUrl = URL("https://api.minecraftservices.com/minecraft/profile")
-        val conn = mcUrl.openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
-        conn.setRequestProperty("Authorization", "Bearer $mcToken")
-        conn.connectTimeout = 5000
-        conn.readTimeout = 5000
+            // 4️⃣ Minecraft Profile
+            val mcUrl = URL("https://api.minecraftservices.com/minecraft/profile")
+            val conn = mcUrl.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $mcToken")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
 
-        if (conn.responseCode == 200) {
-            val response = conn.inputStream.bufferedReader().readText()
-            JSONObject(response).getString("name")
-        } else null
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
+            return if (conn.responseCode == 200) {
+                val response = conn.inputStream.bufferedReader().readText()
+                JSONObject(response).getString("name")
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
-    private fun postJson(url: URL, body: String): JSONObject? = try {
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.outputStream.use { it.write(body.toByteArray()) }
+    private fun postJson(url: URL, body: String): JSONObject? {
+        return try {
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(body.toByteArray()) }
 
-        if (conn.responseCode == 200) {
-            val resp = conn.inputStream.bufferedReader().readText()
-            JSONObject(resp)
-        } else null
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
+            return if (conn.responseCode == 200) {
+                val resp = conn.inputStream.bufferedReader().readText()
+                JSONObject(resp)
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     private fun showConfirmDialog(username: String) {
