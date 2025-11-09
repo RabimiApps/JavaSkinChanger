@@ -37,13 +37,13 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p output
-          cp app/build/outputs/apk/debug/app-debug.apk output/JSCBuild-${{ github.run_number }}.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/!JSC-Build${{ github.run_number }}.apk
 
       # 6. Draft リリースにアップロード
       - name: Create Draft Release
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ github.run_number }}
-          name: JSCBuild-${{ github.run_number }}
+          name: Release JavaSkinChanger -${{ github.run_number }}
           artifacts: output/JSCBuild-${{ github.run_number }}.apk
           draft: true
