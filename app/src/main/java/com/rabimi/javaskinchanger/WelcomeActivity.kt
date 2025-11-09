@@ -43,7 +43,6 @@ class WelcomeActivity : AppCompatActivity() {
             customTabsIntent.launchUrl(this, Uri.parse(loginUrl))
         }
 
-        // アプリに戻ってきた場合の処理
         handleRedirect(intent)
     }
 
@@ -68,9 +67,9 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun fetchMinecraftUsername(accessToken: String) {
+    private fun fetchMinecraftUsername(msToken: String) {
         mainScope.launch {
-            val username = withContext(Dispatchers.IO) { getMinecraftUsername(accessToken) }
+            val username = withContext(Dispatchers.IO) { getMinecraftUsername(msToken) }
             if (username != null) {
                 showConfirmDialog(username)
             } else {
@@ -105,17 +104,26 @@ class WelcomeActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun getMinecraftUsername(accessToken: String): String? {
+    private fun getMinecraftUsername(msToken: String): String? {
         return try {
-            // Xbox Live 認証
-            val xboxResponse = xboxLogin(accessToken)
-            val mcAccessToken = xboxResponse?.getString("Token") ?: return null
+            // 1. Xbox Live Token (XBL)
+            val xblJson = xboxLiveAuthenticate(msToken) ?: return null
+            val xblToken = xblJson.getString("Token")
+            val userHash = xblJson.getJSONObject("DisplayClaims")
+                .getJSONArray("xui").getJSONObject(0).getString("uhs")
 
-            // Minecraft profile API
+            // 2. XSTS Token
+            val xstsJson = xstsAuthenticate(xblToken) ?: return null
+            val xstsToken = xstsJson.getString("Token")
+
+            // 3. Minecraft Access Token
+            val mcToken = minecraftAuthenticate(userHash, xstsToken) ?: return null
+
+            // 4. Minecraft Profile API
             val mcUrl = URL("https://api.minecraftservices.com/minecraft/profile")
             val conn = mcUrl.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
-            conn.setRequestProperty("Authorization", "Bearer $mcAccessToken")
+            conn.setRequestProperty("Authorization", "Bearer $mcToken")
             conn.connectTimeout = 5000
             conn.readTimeout = 5000
 
@@ -129,32 +137,75 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun xboxLogin(accessToken: String): JSONObject? {
+    private fun xboxLiveAuthenticate(msToken: String): JSONObject? {
+        return postJson(
+            URL("https://user.auth.xboxlive.com/user/authenticate"),
+            """
+            {
+                "Properties": {
+                    "AuthMethod":"RPS",
+                    "SiteName":"user.auth.xboxlive.com",
+                    "RpsTicket":"d=$msToken"
+                },
+                "RelyingParty":"http://auth.xboxlive.com",
+                "TokenType":"JWT"
+            }
+            """.trimIndent()
+        )
+    }
+
+    private fun xstsAuthenticate(xblToken: String): JSONObject? {
+        return postJson(
+            URL("https://xsts.auth.xboxlive.com/xsts/authorize"),
+            """
+            {
+                "Properties": {
+                    "SandboxId":"RETAIL",
+                    "UserTokens":["$xblToken"]
+                },
+                "RelyingParty":"rp://api.minecraftservices.com/",
+                "TokenType":"JWT"
+            }
+            """.trimIndent()
+        )
+    }
+
+    private fun minecraftAuthenticate(userHash: String, xstsToken: String): String? {
         return try {
-            val url = URL("https://user.auth.xboxlive.com/user/authenticate")
+            val url = URL("https://api.minecraftservices.com/authentication/login_with_xbox")
+            val body = """
+                {
+                    "identityToken":"XBL3.0 x=$userHash;$xstsToken"
+                }
+            """.trimIndent()
+
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
-            val body = """
-                {
-                    "Properties": {
-                        "AuthMethod": "RPS",
-                        "SiteName": "user.auth.xboxlive.com",
-                        "RpsTicket": "d=$accessToken"
-                    },
-                    "RelyingParty": "http://auth.xboxlive.com",
-                    "TokenType": "JWT"
-                }
-            """.trimIndent()
-            val out: OutputStream = conn.outputStream
-            out.write(body.toByteArray())
-            out.flush()
-            out.close()
+            conn.outputStream.use { it.write(body.toByteArray()) }
 
             if (conn.responseCode == 200) {
-                val response = conn.inputStream.bufferedReader().readText()
-                JSONObject(response)
+                val resp = conn.inputStream.bufferedReader().readText()
+                JSONObject(resp).getString("access_token")
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun postJson(url: URL, body: String): JSONObject? {
+        return try {
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(body.toByteArray()) }
+
+            if (conn.responseCode == 200) {
+                val resp = conn.inputStream.bufferedReader().readText()
+                JSONObject(resp)
             } else null
         } catch (e: Exception) {
             e.printStackTrace()
