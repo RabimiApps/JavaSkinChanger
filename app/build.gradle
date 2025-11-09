@@ -13,7 +13,6 @@ android {
         minSdk 24
         targetSdk 34
 
-        // GitHub Actionsから渡された場合はそれを優先、なければデフォルト値を使用
         versionCode project.hasProperty("versionCode") ? project.versionCode.toInteger() : 1
         versionName project.hasProperty("versionName") ? project.versionName : "1.0"
 
@@ -57,6 +56,9 @@ dependencies {
 
     // AppAuth for OAuth2
     implementation "net.openid:appauth:0.11.1"
+
+    // 🔹 Rajawali 3D描画ライブラリ（Sceneform不要）
+    implementation 'org.rajawali3d:rajawali:1.1.970'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
