@@ -45,5 +45,5 @@ jobs:
         with:
           tag: v${{ github.run_number }}
           name: Release JavaSkinChanger -${{ github.run_number }}
-          artifacts: output/JSCBuild-${{ github.run_number }}.apk
+          artifacts: output/Build${{ github.run_number }}-JSC.apk
           draft: true
