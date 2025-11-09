@@ -19,19 +19,21 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # MSS と同じ Gradle バージョンをセット
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
 
-      # ビルド
       - name: Build Debug APK
         run: gradle clean assembleDebug
 
-      # 成果物アップロード
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp app/build/outputs/apk/debug/app-debug.apk output/JSCBuild-${{ github.run_number }}.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: JavaSkinChanger-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: output/JSCBuild-${{ github.run_number }}.apk
