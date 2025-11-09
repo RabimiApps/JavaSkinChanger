@@ -29,19 +29,22 @@ jobs:
         with:
           gradle-version: 8.7
 
-      # 4. バージョン文字列生成（ビルド番号＋日付時刻）
-      - name: Generate version name
+      # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻）
+      - name: Generate version info
         id: version
         run: |
           BUILD=${{ github.run_number }}
           DATE=$(date +'%Y.%m%d.%H%M%S')
           VERSION_NAME="${BUILD}.${DATE}"
+          VERSION_CODE=$BUILD
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
           echo "Version name: $VERSION_NAME"
+          echo "Version code: $VERSION_CODE"
 
-      # 5. APK ビルド
+      # 5. APK ビルド（versionNameとversionCodeを反映）
       - name: Build Debug APK
-        run: gradle clean assembleDebug -PversionName=${{ env.VERSION_NAME }}
+        run: gradle clean assembleDebug -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
       # 6. APK をバージョン名入りでリネーム
       - name: Rename APK
