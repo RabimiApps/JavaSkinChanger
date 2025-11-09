@@ -12,8 +12,11 @@ android {
         applicationId "com.rabimi.javaskinchanger"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "810.19.1945.45114514"
+
+        // GitHub Actionsから渡された場合はそれを優先、なければデフォルト値を使用
+        versionCode project.hasProperty("versionCode") ? project.versionCode.toInteger() : 1
+        versionName project.hasProperty("versionName") ? project.versionName : "1.0"
+
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // OAuth2 リダイレクト用プレースホルダー
