@@ -121,7 +121,7 @@ class WelcomeActivity : AppCompatActivity() {
                         "SandboxId": "RETAIL",
                         "UserTokens": ["$xblToken"]
                     },
-                    "RelyingParty": "rp://api.minecraftservices.com",
+                    "RelyingParty": "rp://api.minecraftservices.com/",
                     "TokenType": "JWT"
                 }
                 """.trimIndent()
@@ -165,19 +165,39 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
+    // --------------------------
+    // postJson: POST を行い body / response をフル出力する（ここを丸ごとコピー可）
+    // --------------------------
     private fun postJson(url: URL, body: String): JSONObject? {
         return try {
-            println("[Debug] POST JSON to $url\nBody: $body")
+            // 送信前のログ（ここで送る JSON を確認できる）
+            println("[Debug] POST JSON to $url")
+            println("[Debug] Request body:\n$body")
+
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
             conn.outputStream.use { it.write(body.toByteArray()) }
 
             val code = conn.responseCode
-            val resp = conn.inputStream.bufferedReader().readText()
-            println("[Debug] Response code: $code\nResponse body: $resp")
-            if (code == 200) JSONObject(resp) else null
+            // responseStream はエラー時に inputStream が使えないことがあるので両方試す
+            val resp = try {
+                conn.inputStream.bufferedReader().readText()
+            } catch (ee: Exception) {
+                try {
+                    conn.errorStream?.bufferedReader()?.readText() ?: ""
+                } catch (eee: Exception) {
+                    ""
+                }
+            }
+
+            println("[Debug] Response code: $code")
+            println("[Debug] Response body:\n$resp")
+
+            if (code in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
         } catch (e: Exception) {
             e.printStackTrace()
             println("[Debug] Exception in postJson: ${e.message}")
@@ -185,19 +205,35 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
+    // --------------------------
+    // getJson: GET を行いレスポンスをフル出力（ここも丸ごとコピー可）
+    // --------------------------
     private fun getJson(url: URL, token: String): JSONObject? {
         return try {
-            println("[Debug] GET JSON from $url with Bearer token")
+            println("[Debug] GET JSON from $url")
+            println("[Debug] Authorization: Bearer $token")
+
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
 
             val code = conn.responseCode
-            val resp = conn.inputStream.bufferedReader().readText()
-            println("[Debug] Response code: $code\nResponse body: $resp")
-            if (code == 200) JSONObject(resp) else null
+            val resp = try {
+                conn.inputStream.bufferedReader().readText()
+            } catch (ee: Exception) {
+                try {
+                    conn.errorStream?.bufferedReader()?.readText() ?: ""
+                } catch (eee: Exception) {
+                    ""
+                }
+            }
+
+            println("[Debug] Response code: $code")
+            println("[Debug] Response body:\n$resp")
+
+            if (code in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
         } catch (e: Exception) {
             e.printStackTrace()
             println("[Debug] Exception in getJson: ${e.message}")
