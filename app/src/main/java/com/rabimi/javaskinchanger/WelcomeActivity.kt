@@ -16,7 +16,7 @@ class WelcomeActivity : AppCompatActivity() {
 
     private val clientId = "0000000048183522"
     private val redirectUri = "ms-xal-0000000048183522://auth"
-    private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
+    private val scope = "XboxLive.signin offline_access"
 
     private lateinit var btnNext: Button
     private val mainScope = MainScope()
