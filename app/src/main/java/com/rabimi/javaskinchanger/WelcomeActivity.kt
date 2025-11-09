@@ -29,9 +29,8 @@ class WelcomeActivity : AppCompatActivity() {
 
         // 🔹 既にログイン済みならスキップ
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val savedToken = prefs.getString("microsoft_token", null)
+        val savedToken = prefs.getString("minecraft_token", null)
         if (savedToken != null) {
-            println("[Debug] Token found, skipping to MainActivity")
             startActivity(Intent(this, MainActivity::class.java))
             finish()
             return
@@ -79,7 +78,7 @@ class WelcomeActivity : AppCompatActivity() {
                 // 🔹 トークン保存
                 getSharedPreferences("prefs", MODE_PRIVATE)
                     .edit()
-                    .putString("microsoft_token", mcToken)
+                    .putString("minecraft_token", mcToken)
                     .apply()
 
                 showConfirmDialog(username)
