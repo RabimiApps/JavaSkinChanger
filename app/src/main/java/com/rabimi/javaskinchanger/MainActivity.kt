@@ -8,16 +8,16 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
-import org.rajawali3d.Object3D
-import org.rajawali3d.materials.Material
-import org.rajawali3d.materials.textures.Texture
 import org.rajawali3d.renderer.Renderer
-import org.rajawali3d.view.SurfaceView
-import java.net.URL
+import org.rajawali3d.surface.RajawaliSurfaceView
+import org.rajawali3d.Object3D
+import org.rajawali3d.materials.textures.Texture
+import org.rajawali3d.loader.LoaderOBJ
+import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var rajawaliView: SurfaceView
+    private lateinit var rajawaliView: RajawaliSurfaceView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedUri: Uri? = null
     private var mcToken: String? = null
     private val mainScope = MainScope()
-    private lateinit var skinRenderer: SkinRenderer
+    private var renderer: SkinRenderer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,16 +53,15 @@ class MainActivity : AppCompatActivity() {
 
         txtUsername.text = "ログイン中: $username"
 
-        // Rajawali Renderer 初期化
-        skinRenderer = SkinRenderer(this)
-        rajawaliView.setSurfaceRenderer(skinRenderer)
+        renderer = SkinRenderer(this)
+        rajawaliView.setSurfaceRenderer(renderer)
 
-        // 現在のスキンをロード
+        // 現在のスキンをロードして 3D に適用
         mainScope.launch {
             val skinUrl = withContext(Dispatchers.IO) {
                 MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
             }
-            skinRenderer.loadSkin(skinUrl)
+            renderer?.loadSkinFromUrl(skinUrl)
         }
 
         btnSelect.setOnClickListener {
@@ -79,7 +78,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (success) {
                         Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                        selectedUri?.let { skinRenderer.loadSkin(it.toString()) }
+                        selectedUri?.let { renderer?.loadSkinFromUri(it) }
                         fadeSwitch(btnUpload, btnSelect)
                     } else {
                         Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
@@ -105,7 +104,7 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 1 && resultCode == RESULT_OK) {
             selectedUri = data?.data
             selectedUri?.let {
-                skinRenderer.loadSkin(it.toString())
+                renderer?.loadSkinFromUri(it)
                 fadeSwitch(btnSelect, btnUpload)
             }
         }
@@ -122,6 +121,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         mainScope.cancel()
+        rajawaliView.onPause()
         super.onDestroy()
     }
 }
