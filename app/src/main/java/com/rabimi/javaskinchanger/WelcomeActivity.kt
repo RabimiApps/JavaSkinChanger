@@ -16,7 +16,7 @@ import java.net.URL
 class WelcomeActivity : AppCompatActivity() {
 
     private val clientId = "00000000402b5328" // Minecraft / Pojav と同じ既知ClientID
-    private val redirectUri = "https://login.live.com/oauth20_desktop.srf" // 公式推奨の redirect_uri
+    private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     private lateinit var btnNext: Button
@@ -40,6 +40,7 @@ class WelcomeActivity : AppCompatActivity() {
             customTabsIntent.launchUrl(this, Uri.parse(loginUrl))
         }
 
+        // アプリに戻ってきた場合の処理
         handleRedirect(intent)
     }
 
@@ -50,15 +51,17 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun handleRedirect(intent: Intent?) {
         intent?.data?.let { uri ->
-            // Desktop redirect は fragment に token が入る
-            val fragment = uri.fragment ?: ""
-            val token = fragment.split("&").find { it.startsWith("access_token=") }
-                ?.split("=")?.get(1)
+            // login.live.com/oauth20_desktop.srf に戻ってきた場合
+            if (uri.toString().startsWith(redirectUri)) {
+                val fragment = uri.fragment ?: ""
+                val token = fragment.split("&").find { it.startsWith("access_token=") }
+                    ?.split("=")?.getOrNull(1)
 
-            if (token != null) {
-                fetchMinecraftUsername(token)
-            } else {
-                showErrorDialog("トークン取得失敗")
+                if (token != null) {
+                    fetchMinecraftUsername(token)
+                } else {
+                    showErrorDialog("トークン取得失敗")
+                }
             }
         }
     }
@@ -102,6 +105,7 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun getMinecraftUsername(accessToken: String): String? {
         return try {
+            // Xbox 認証 → Minecraft 認証
             val xboxResponse = xboxLogin(accessToken)
             val mcAccessToken = xboxResponse?.getString("Token") ?: return null
 
@@ -145,8 +149,10 @@ class WelcomeActivity : AppCompatActivity() {
             out.flush()
             out.close()
 
-            val response = conn.inputStream.bufferedReader().readText()
-            JSONObject(response)
+            if (conn.responseCode == 200) {
+                val response = conn.inputStream.bufferedReader().readText()
+                JSONObject(response)
+            } else null
         } catch (e: Exception) {
             e.printStackTrace()
             null
