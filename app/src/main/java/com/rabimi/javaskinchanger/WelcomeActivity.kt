@@ -27,17 +27,14 @@ class WelcomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_welcome)
 
         btnNext = findViewById(R.id.btnNext)
-        println("[Debug] onCreate called")
 
         btnNext.setOnClickListener {
-            println("[Debug] btnNext clicked")
             val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
                     "?client_id=$clientId" +
                     "&response_type=token" +
                     "&redirect_uri=$redirectUri" +
                     "&scope=$scope" +
                     "&prompt=select_account"
-            println("[Debug] Launching OAuth URL: $loginUrl")
             CustomTabsIntent.Builder().build().launchUrl(this, Uri.parse(loginUrl))
         }
 
@@ -46,44 +43,37 @@ class WelcomeActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        println("[Debug] onNewIntent called")
         handleRedirect(intent)
     }
 
     private fun handleRedirect(intent: Intent?) {
         intent?.data?.let { uri ->
-            println("[Debug] handleRedirect with URI: $uri")
             if (uri.toString().startsWith(redirectUri)) {
                 val fragment = uri.fragment ?: ""
-                println("[Debug] URI Fragment: $fragment")
                 val token = fragment.split("&").find { it.startsWith("access_token=") }
                     ?.substringAfter("=")
                 if (token != null) {
-                    println("[Debug] Access Token: $token")
-                    fetchMinecraftUsername(token)
+                    fetchMinecraftTokenAndUsername(token)
                 } else {
-                    println("[Debug] Access token not found in fragment")
                     showErrorDialog("トークン取得失敗")
                 }
             }
         }
     }
 
-    private fun fetchMinecraftUsername(msToken: String) {
-        println("[Debug] fetchMinecraftUsername called with msToken: $msToken")
+    private fun fetchMinecraftTokenAndUsername(msToken: String) {
         mainScope.launch {
-            val username = withContext(Dispatchers.IO) { getMinecraftUsername(msToken) }
-            if (username != null) {
-                println("[Debug] Minecraft Username: $username")
-                showConfirmDialog(username)
+            val result = withContext(Dispatchers.IO) { getMinecraftTokenAndUsername(msToken) }
+            if (result != null) {
+                val (username, mcToken) = result
+                showConfirmDialog(username, mcToken)
             } else {
-                println("[Debug] Minecraft API取得失敗")
                 showErrorDialog("Minecraft API 取得失敗")
             }
         }
     }
 
-    private fun getMinecraftUsername(msToken: String): String? {
+    private fun getMinecraftTokenAndUsername(msToken: String): Pair<String, String>? {
         return try {
             // Xbox Live 認証
             val xblResp = postJson(
@@ -136,7 +126,8 @@ class WelcomeActivity : AppCompatActivity() {
                 mcToken
             ) ?: return null
 
-            mcProfileResp.getString("name")
+            val username = mcProfileResp.getString("name")
+            Pair(username, mcToken)
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -187,13 +178,14 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun showConfirmDialog(username: String) {
+    private fun showConfirmDialog(username: String, mcToken: String) {
         AlertDialog.Builder(this)
             .setTitle("ログイン確認")
             .setMessage("ログイン: $username\nこのアカウントでログインしますか？")
             .setPositiveButton("はい") { _, _ ->
                 val intent = Intent(this, MainActivity::class.java)
                 intent.putExtra("minecraft_username", username)
+                intent.putExtra("minecraft_token", mcToken)
                 startActivity(intent)
                 finish()
             }
