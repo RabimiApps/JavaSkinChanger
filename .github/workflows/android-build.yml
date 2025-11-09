@@ -29,12 +29,13 @@ jobs:
         with:
           gradle-version: 8.7
 
-      # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻）
+      # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻 JST）
       - name: Generate version info
         id: version
         run: |
           BUILD=${{ github.run_number }}
-          DATE=$(date +'%Y.%m%d.%H%M%S')
+          # 日本時間に設定
+          DATE=$(TZ=Asia/Tokyo date +'%Y.%m%d.%H%M%S')
           VERSION_NAME="${BUILD}.${DATE}"
           VERSION_CODE=$BUILD
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
