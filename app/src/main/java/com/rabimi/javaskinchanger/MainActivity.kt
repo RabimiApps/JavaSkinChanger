@@ -7,14 +7,17 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.ar.sceneform.SceneView
-import com.google.ar.sceneform.rendering.ModelRenderable
 import kotlinx.coroutines.*
+import org.rajawali3d.Object3D
+import org.rajawali3d.materials.Material
+import org.rajawali3d.materials.textures.Texture
+import org.rajawali3d.renderer.Renderer
+import org.rajawali3d.view.SurfaceView
 import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var sceneView: SceneView
+    private lateinit var rajawaliView: SurfaceView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -24,12 +27,13 @@ class MainActivity : AppCompatActivity() {
     private var selectedUri: Uri? = null
     private var mcToken: String? = null
     private val mainScope = MainScope()
+    private lateinit var skinRenderer: SkinRenderer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        sceneView = findViewById(R.id.sceneView)
+        rajawaliView = findViewById(R.id.rajawaliView)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -49,12 +53,16 @@ class MainActivity : AppCompatActivity() {
 
         txtUsername.text = "ログイン中: $username"
 
-        // 現在のスキンをロードして3Dに適用
+        // Rajawali Renderer 初期化
+        skinRenderer = SkinRenderer(this)
+        rajawaliView.setSurfaceRenderer(skinRenderer)
+
+        // 現在のスキンをロード
         mainScope.launch {
             val skinUrl = withContext(Dispatchers.IO) {
                 MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
             }
-            loadSkin3D(skinUrl)
+            skinRenderer.loadSkin(skinUrl)
         }
 
         btnSelect.setOnClickListener {
@@ -71,8 +79,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (success) {
                         Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                        // アップロード後も即座に3D表示更新
-                        selectedUri?.let { loadSkin3D(it.toString()) }
+                        selectedUri?.let { skinRenderer.loadSkin(it.toString()) }
                         fadeSwitch(btnUpload, btnSelect)
                     } else {
                         Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
@@ -93,28 +100,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 3DスキンをロードしてSceneViewに表示する
-     */
-    private fun loadSkin3D(skinUrl: String) {
-        // 実際には MinecraftスキンPNGを3Dモデルに貼り付ける処理が必要
-        // ここでは Sceneform の ModelRenderable を使う例
-        ModelRenderable.builder()
-            .setSource(this, Uri.parse("file:///android_asset/minecraft_character.sfb")) // デフォルトモデル
-            .build()
-            .thenAccept { renderable ->
-                sceneView.scene.addChild(
-                    com.google.ar.sceneform.Node().apply {
-                        this.renderable = renderable
-                        this.localScale = com.google.ar.sceneform.math.Vector3(1f, 1f, 1f)
-                        this.setLookDirection(com.google.ar.sceneform.math.Vector3(0f, 0f, -1f))
-                    }
-                )
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1 && resultCode == RESULT_OK) {
+            selectedUri = data?.data
+            selectedUri?.let {
+                skinRenderer.loadSkin(it.toString())
+                fadeSwitch(btnSelect, btnUpload)
             }
-            .exceptionally {
-                Toast.makeText(this, "3Dモデルの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
-                null
-            }
+        }
     }
 
     private fun fadeSwitch(hideBtn: Button, showBtn: Button) {
@@ -126,21 +120,8 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1 && resultCode == RESULT_OK) {
-            selectedUri = data?.data
-            selectedUri?.let {
-                // 選んだスキンを即座に3D表示
-                loadSkin3D(it.toString())
-                fadeSwitch(btnSelect, btnUpload)
-            }
-        }
-    }
-
     override fun onDestroy() {
         mainScope.cancel()
-        sceneView.destroy()
         super.onDestroy()
     }
 }
