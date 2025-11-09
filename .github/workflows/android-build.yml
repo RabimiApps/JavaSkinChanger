@@ -29,21 +29,31 @@ jobs:
         with:
           gradle-version: 8.7
 
-      # 4. APK ビルド
-      - name: Build Debug APK
-        run: gradle clean assembleDebug
+      # 4. バージョン文字列生成（ビルド番号＋日付時刻）
+      - name: Generate version name
+        id: version
+        run: |
+          BUILD=${{ github.run_number }}
+          DATE=$(date +'%Y.%m%d.%H%M%S')
+          VERSION_NAME="${BUILD}.${DATE}"
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "Version name: $VERSION_NAME"
 
-      # 5. APK をビルド番号入りにリネーム
+      # 5. APK ビルド
+      - name: Build Debug APK
+        run: gradle clean assembleDebug -PversionName=${{ env.VERSION_NAME }}
+
+      # 6. APK をバージョン名入りでリネーム
       - name: Rename APK
         run: |
           mkdir -p output
-          cp app/build/outputs/apk/debug/app-debug.apk output/Build${{ github.run_number }}-JSC.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/JSCBuild-${{ env.VERSION_NAME }}.apk
 
-      # 6. Draft リリースにアップロード
+      # 7. Draft リリースにアップロード
       - name: Create Draft Release
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ github.run_number }}
-          name: Release JavaSkinChanger -${{ github.run_number }}
-          artifacts: output/Build${{ github.run_number }}-JSC.apk
+          tag: v${{ env.VERSION_NAME }}
+          name: JSCBuild-${{ env.VERSION_NAME }}
+          artifacts: output/JSCBuild-${{ env.VERSION_NAME }}.apk
           draft: true
