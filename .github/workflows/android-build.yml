@@ -37,7 +37,7 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p output
-          cp app/build/outputs/apk/debug/app-debug.apk output/!JSC-Build${{ github.run_number }}.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/Build${{ github.run_number }}-JSC.apk
 
       # 6. Draft リリースにアップロード
       - name: Create Draft Release
