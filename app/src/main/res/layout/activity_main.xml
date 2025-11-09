@@ -1,43 +1,73 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:gravity="center"
+    android:background="#FAFAFA"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    android:background="@color/white">
+    android:padding="24dp">
 
     <ImageView
         android:id="@+id/skinImage"
         android:layout_width="200dp"
-        android:layout_height="300dp"
-        android:scaleType="centerCrop"/>
+        android:layout_height="200dp"
+        android:scaleType="centerCrop"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/rounded_bg" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSelect"
+    <TextView
+        android:id="@+id/txtUsername"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ログイン中: ..."
+        android:textColor="#222222"
+        android:textSize="16sp"
+        android:layout_marginBottom="20dp" />
+
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="スキンを選択"
-        android:layout_marginTop="16dp"/>
+        android:gravity="center"
+        android:layout_marginBottom="20dp"
+        android:weightSum="2">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnUpload"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="アップロード"
-        android:layout_marginTop="8dp"/>
+        <Button
+            android:id="@+id/btnSelect"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="画像を選択"
+            android:backgroundTint="#007AFF"
+            android:textColor="#FFFFFF" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSwitchModel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="スティーブ → アレックス"
-        android:layout_marginTop="8dp"/>
+        <View android:layout_width="16dp" android:layout_height="match_parent"/>
 
-    <com.google.android.material.button.MaterialButton
+        <Button
+            android:id="@+id/btnUpload"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="アップロード"
+            android:backgroundTint="#34C759"
+            android:textColor="#FFFFFF"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <Button
         android:id="@+id/btnLibrary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="スキンライブラリー"
-        android:layout_marginTop="8dp"/>
+        android:text="スキンライブラリ"
+        android:backgroundTint="#5856D6"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnLogout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ログアウト"
+        android:backgroundTint="#FF3B30"
+        android:textColor="#FFFFFF" />
 
 </LinearLayout>
