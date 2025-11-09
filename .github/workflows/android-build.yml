@@ -10,30 +10,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. リポジトリチェックアウト
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. JDK 17 セットアップ
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # 3. Gradle 8.7 セットアップ
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
 
+      # 4. APK ビルド
       - name: Build Debug APK
         run: gradle clean assembleDebug
 
+      # 5. APK をビルド番号入りにリネーム
       - name: Rename APK
         run: |
           mkdir -p output
           cp app/build/outputs/apk/debug/app-debug.apk output/JSCBuild-${{ github.run_number }}.apk
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # 6. Draft リリースにアップロード
+      - name: Create Draft Release
+        uses: ncipollo/release-action@v1
         with:
-          name: JavaSkinChanger-APK
-          path: output/JSCBuild-${{ github.run_number }}.apk
+          tag: v${{ github.run_number }}
+          name: JSCBuild-${{ github.run_number }}
+          artifacts: output/JSCBuild-${{ github.run_number }}.apk
+          draft: true
