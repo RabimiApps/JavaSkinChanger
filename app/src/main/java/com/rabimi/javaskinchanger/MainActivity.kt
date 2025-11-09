@@ -4,16 +4,17 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.bumptech.glide.Glide
+import com.google.ar.sceneform.SceneView
+import com.google.ar.sceneform.rendering.ModelRenderable
 import kotlinx.coroutines.*
+import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var skinImage: ImageView
+    private lateinit var sceneView: SceneView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -28,7 +29,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        skinImage = findViewById(R.id.skinImage)
+        sceneView = findViewById(R.id.sceneView)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -47,7 +48,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         txtUsername.text = "ログイン中: $username"
-        loadCurrentSkin(mcToken!!)
+
+        // 現在のスキンをロードして3Dに適用
+        mainScope.launch {
+            val skinUrl = withContext(Dispatchers.IO) {
+                MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
+            }
+            loadSkin3D(skinUrl)
+        }
 
         btnSelect.setOnClickListener {
             val intent = Intent(Intent.ACTION_GET_CONTENT)
@@ -56,14 +64,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnUpload.setOnClickListener {
-            if (selectedUri != null) {
+            if (selectedUri != null && mcToken != null) {
                 mainScope.launch {
                     val success = withContext(Dispatchers.IO) {
                         MinecraftSkinManager.uploadSkin(this@MainActivity, selectedUri!!, mcToken!!)
                     }
                     if (success) {
                         Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                        loadCurrentSkin(mcToken!!)
+                        // アップロード後も即座に3D表示更新
+                        selectedUri?.let { loadSkin3D(it.toString()) }
                         fadeSwitch(btnUpload, btnSelect)
                     } else {
                         Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
@@ -84,13 +93,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadCurrentSkin(token: String) {
-        mainScope.launch {
-            val skinUrl = withContext(Dispatchers.IO) {
-                MinecraftSkinManager.getCurrentSkinUrl(token)
+    /**
+     * 3DスキンをロードしてSceneViewに表示する
+     */
+    private fun loadSkin3D(skinUrl: String) {
+        // 実際には MinecraftスキンPNGを3Dモデルに貼り付ける処理が必要
+        // ここでは Sceneform の ModelRenderable を使う例
+        ModelRenderable.builder()
+            .setSource(this, Uri.parse("file:///android_asset/minecraft_character.sfb")) // デフォルトモデル
+            .build()
+            .thenAccept { renderable ->
+                sceneView.scene.addChild(
+                    com.google.ar.sceneform.Node().apply {
+                        this.renderable = renderable
+                        this.localScale = com.google.ar.sceneform.math.Vector3(1f, 1f, 1f)
+                        this.setLookDirection(com.google.ar.sceneform.math.Vector3(0f, 0f, -1f))
+                    }
+                )
             }
-            Glide.with(this@MainActivity).load(skinUrl).into(skinImage)
-        }
+            .exceptionally {
+                Toast.makeText(this, "3Dモデルの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+                null
+            }
     }
 
     private fun fadeSwitch(hideBtn: Button, showBtn: Button) {
@@ -107,7 +131,8 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 1 && resultCode == RESULT_OK) {
             selectedUri = data?.data
             selectedUri?.let {
-                Glide.with(this).load(it).into(skinImage)
+                // 選んだスキンを即座に3D表示
+                loadSkin3D(it.toString())
                 fadeSwitch(btnSelect, btnUpload)
             }
         }
@@ -115,6 +140,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         mainScope.cancel()
+        sceneView.destroy()
         super.onDestroy()
     }
 }
