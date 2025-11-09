@@ -15,8 +15,10 @@ import java.net.URL
 
 class WelcomeActivity : AppCompatActivity() {
 
-    private val clientId = "00000000402b5328" // Minecraft/Pojav で使われている既知ClientID
-    private val redirectUri = "https://login.live.com/oauth20_desktop.srf"
+    // 公式 Minecraft ClientId
+    private val clientId = "0000000048183522"
+    // 公式リダイレクト URI
+    private val redirectUri = "ms-xal-0000000048183522://auth"
     private val scope = "service::user.auth.xboxlive.com::MBI_SSL"
 
     private lateinit var btnNext: Button
@@ -33,7 +35,8 @@ class WelcomeActivity : AppCompatActivity() {
                     "?client_id=$clientId" +
                     "&response_type=token" +
                     "&redirect_uri=$redirectUri" +
-                    "&scope=$scope"
+                    "&scope=$scope" +
+                    "&prompt=select_account"
 
             val builder = CustomTabsIntent.Builder()
             val customTabsIntent = builder.build()
@@ -104,9 +107,11 @@ class WelcomeActivity : AppCompatActivity() {
 
     private fun getMinecraftUsername(accessToken: String): String? {
         return try {
+            // Xbox Live 認証
             val xboxResponse = xboxLogin(accessToken)
             val mcAccessToken = xboxResponse?.getString("Token") ?: return null
 
+            // Minecraft profile API
             val mcUrl = URL("https://api.minecraftservices.com/minecraft/profile")
             val conn = mcUrl.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
