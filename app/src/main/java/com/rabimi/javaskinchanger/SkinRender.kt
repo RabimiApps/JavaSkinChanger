@@ -37,7 +37,7 @@ class SkinRenderer(context: Context) : Renderer(context) {
         light.power = 2.0f
         currentScene.addLight(light)
 
-        // 各部位をCubeで作成（すべてFloat）
+        // Cube で各部位作成
         head = Cube(1.0f, 1.0f, 1.0f)
         body = Cube(1.0f, 1.5f, 0.5f)
         leftArm = Cube(0.5f, 1.5f, 0.5f)
@@ -71,12 +71,12 @@ class SkinRenderer(context: Context) : Renderer(context) {
         currentScene.addChild(leftLeg)
         currentScene.addChild(rightLeg)
 
-        // カメラ
+        // カメラ位置
         currentCamera.z = 6.0f
         currentCamera.y = 1.0f
     }
 
-    // スキンを適用
+    // スキン更新
     fun updateSkin(bitmap: Bitmap) {
         skinBitmap = bitmap
         skinBitmap?.let { bmp ->
@@ -107,7 +107,7 @@ class SkinRenderer(context: Context) : Renderer(context) {
                 angleY += dx * 0.5f
                 angleX += dy * 0.5f
 
-                // 各パーツを回転
+                // 回転適用
                 head.rotation.x = angleX
                 head.rotation.y = angleY
                 body.rotation.x = angleX
