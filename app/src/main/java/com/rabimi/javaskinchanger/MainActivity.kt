@@ -53,15 +53,13 @@ class MainActivity : AppCompatActivity() {
         skinRenderer = SkinRenderer(this)
         rajawaliView.setSurfaceRenderer(skinRenderer)
 
-        // 現在のスキンをロード
+        // 現在のスキンをロード（URL 取得）
         mainScope.launch {
             val skinUrl = withContext(Dispatchers.IO) {
                 MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
             }
-
-            // 👇 Nullチェック追加してクラッシュ防止 & コンパイルエラー修正
             if (skinUrl != null) {
-                loadSkin3D(skinUrl)
+                loadSkinFromUrl(skinUrl)
             } else {
                 Toast.makeText(this@MainActivity, "スキン情報を取得できませんでした", Toast.LENGTH_SHORT).show()
             }
@@ -81,7 +79,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (success) {
                         Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                        selectedUri?.let { loadSkin3D(it.toString()) }
+                        selectedUri?.let { loadSkinFromUri(it) }
                         fadeSwitch(btnUpload, btnSelect)
                     } else {
                         Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
@@ -102,19 +100,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadSkin3D(skinPath: String) {
+    private fun loadSkinFromUri(uri: Uri) {
         try {
-            val inputStream = if (skinPath.startsWith("content://")) {
-                contentResolver.openInputStream(Uri.parse(skinPath))
-            } else {
-                java.net.URL(skinPath).openStream()
-            }
+            val inputStream = contentResolver.openInputStream(uri)
             val bitmap = BitmapFactory.decodeStream(inputStream)
             inputStream?.close()
-            skinRenderer.updateSkin(bitmap)
+            bitmap?.let { skinRenderer.updateSkin(it) }
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun loadSkinFromUrl(url: String) {
+        mainScope.launch {
+            try {
+                val bitmap = withContext(Dispatchers.IO) {
+                    val stream = java.net.URL(url).openStream()
+                    BitmapFactory.decodeStream(stream).also { stream.close() }
+                }
+                skinRenderer.updateSkin(bitmap)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(this@MainActivity, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -130,9 +139,9 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1 && resultCode == RESULT_OK) {
-            selectedUri = data?.data
-            selectedUri?.let {
-                loadSkin3D(it.toString())
+            data?.data?.let {
+                selectedUri = it
+                loadSkinFromUri(it)
                 fadeSwitch(btnSelect, btnUpload)
             }
         }
