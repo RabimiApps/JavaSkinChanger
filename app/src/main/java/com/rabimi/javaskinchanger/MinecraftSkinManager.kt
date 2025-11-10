@@ -25,15 +25,25 @@ object MinecraftSkinManager {
 
             if (conn.responseCode in 200..299) {
                 val json = JSONObject(response)
-                val skinsArray = json.optJSONArray("skins")
 
+                // "skins" 配列を取得
+                val skinsArray = json.optJSONArray("skins")
                 if (skinsArray != null && skinsArray.length() > 0) {
-                    val firstSkin = skinsArray.getJSONObject(0)
-                    val skinUrl = firstSkin.optString("url", null)
-                    Log.d("MinecraftSkinManager", "Skin URL: $skinUrl")
-                    skinUrl
+                    for (i in 0 until skinsArray.length()) {
+                        val skin = skinsArray.getJSONObject(i)
+                        val state = skin.optString("state")
+                        if (state == "ACTIVE") { // 現在のスキンを優先
+                            val skinUrl = skin.optString("url", null)
+                            Log.d("MinecraftSkinManager", "Active Skin URL: $skinUrl")
+                            return skinUrl
+                        }
+                    }
+                    // ACTIVEがなければ最初のスキンを返す
+                    val firstSkinUrl = skinsArray.getJSONObject(0).optString("url", null)
+                    Log.d("MinecraftSkinManager", "Fallback Skin URL: $firstSkinUrl")
+                    firstSkinUrl
                 } else {
-                    Log.e("MinecraftSkinManager", "No skin data found in response")
+                    Log.e("MinecraftSkinManager", "No skins array in profile")
                     null
                 }
             } else {
