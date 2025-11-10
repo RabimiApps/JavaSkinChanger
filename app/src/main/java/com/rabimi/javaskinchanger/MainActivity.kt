@@ -11,7 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.github.storeforminecraft.skinview.SkinView
+import com.github.storeforminecraft.skinview.SkinViewAndroid
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
