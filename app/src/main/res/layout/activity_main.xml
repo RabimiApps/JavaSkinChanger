@@ -6,9 +6,9 @@
     android:layout_height="match_parent"
     android:padding="24dp">
 
-    <!-- Rajawali 3D描画用 SurfaceView -->
-    <org.rajawali3d.view.SurfaceView
-        android:id="@+id/rajawaliView"
+    <!-- SkinViewAndroid 3D描画用 -->
+    <com.github.steveice10.skinview.SkinView
+        android:id="@+id/skinView"
         android:layout_width="200dp"
         android:layout_height="200dp"
         android:layout_marginBottom="24dp" />
