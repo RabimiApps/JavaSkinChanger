@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:gravity="center"
@@ -6,20 +7,20 @@
     android:layout_height="match_parent"
     android:padding="24dp">
 
-    <!-- SkinViewAndroid 3D描画用 -->
+    <!-- SkinViewAndroid の 3D 表示 -->
     <com.github.steveice10.skinview.SkinView
         android:id="@+id/skinView"
         android:layout_width="200dp"
         android:layout_height="200dp"
-        android:layout_marginBottom="24dp" />
+        android:layout_marginBottom="12dp" />
 
-    <!-- 2Dスキンプレビュー用 ImageView -->
+    <!-- 2D プレビュー -->
     <ImageView
         android:id="@+id/skinImage"
         android:layout_width="200dp"
         android:layout_height="200dp"
         android:scaleType="centerCrop"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="12dp"
         android:background="@drawable/rounded_bg" />
 
     <TextView
@@ -31,22 +32,20 @@
         android:textSize="16sp"
         android:layout_marginBottom="20dp" />
 
+    <!-- ボタン群 -->
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:layout_marginBottom="20dp"
-        android:weightSum="2">
+        android:layout_marginBottom="20dp">
 
         <Button
             android:id="@+id/btnSelect"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="画像を選択"
-            android:backgroundTint="#007AFF"
-            android:textColor="#FFFFFF" />
+            android:text="画像を選択" />
 
         <View android:layout_width="16dp" android:layout_height="match_parent"/>
 
@@ -55,10 +54,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="アップロード"
-            android:backgroundTint="#34C759"
-            android:textColor="#FFFFFF"
-            android:visibility="gone"/>
+            android:text="アップロード" />
     </LinearLayout>
 
     <Button
@@ -66,16 +62,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="スキンライブラリ"
-        android:backgroundTint="#5856D6"
-        android:textColor="#FFFFFF"
         android:layout_marginBottom="12dp" />
 
     <Button
         android:id="@+id/btnLogout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="ログアウト"
-        android:backgroundTint="#FF3B30"
-        android:textColor="#FFFFFF" />
+        android:text="ログアウト" />
 
 </LinearLayout>
