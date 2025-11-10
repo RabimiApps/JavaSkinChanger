@@ -58,11 +58,7 @@ class MainActivity : AppCompatActivity() {
             val skinUrl = withContext(Dispatchers.IO) {
                 MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
             }
-            if (skinUrl != null) {
-                loadSkinFromUrl(skinUrl)
-            } else {
-                Toast.makeText(this@MainActivity, "スキン情報を取得できませんでした", Toast.LENGTH_SHORT).show()
-            }
+            if (skinUrl != null) loadSkinFromUrl(skinUrl)
         }
 
         btnSelect.setOnClickListener {
@@ -72,17 +68,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnUpload.setOnClickListener {
-            if (selectedUri != null && mcToken != null) {
-                mainScope.launch {
-                    val success = withContext(Dispatchers.IO) {
-                        MinecraftSkinManager.uploadSkin(this@MainActivity, selectedUri!!, mcToken!!)
-                    }
-                    if (success) {
-                        Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                        selectedUri?.let { loadSkinFromUri(it) }
-                        fadeSwitch(btnUpload, btnSelect)
-                    } else {
-                        Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
+            selectedUri?.let { uri ->
+                mcToken?.let { token ->
+                    mainScope.launch {
+                        val success = withContext(Dispatchers.IO) {
+                            MinecraftSkinManager.uploadSkin(this@MainActivity, uri, token)
+                        }
+                        if (success) {
+                            Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
+                            loadSkinFromUri(uri)
+                            fadeSwitch(btnUpload, btnSelect)
+                        } else {
+                            Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -100,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // 選択 URI からスキン反映
     private fun loadSkinFromUri(uri: Uri) {
         try {
             val inputStream = contentResolver.openInputStream(uri)
@@ -112,6 +111,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // URL からスキン反映
     private fun loadSkinFromUrl(url: String) {
         mainScope.launch {
             try {
