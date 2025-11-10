@@ -9,7 +9,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
-
 import org.rajawali3d.view.SurfaceView
 
 class MainActivity : AppCompatActivity() {
@@ -59,7 +58,13 @@ class MainActivity : AppCompatActivity() {
             val skinUrl = withContext(Dispatchers.IO) {
                 MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
             }
-            loadSkin3D(skinUrl)
+
+            // 👇 Nullチェック追加してクラッシュ防止 & コンパイルエラー修正
+            if (skinUrl != null) {
+                loadSkin3D(skinUrl)
+            } else {
+                Toast.makeText(this@MainActivity, "スキン情報を取得できませんでした", Toast.LENGTH_SHORT).show()
+            }
         }
 
         btnSelect.setOnClickListener {
