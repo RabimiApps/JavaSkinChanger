@@ -30,7 +30,8 @@ class WelcomeActivity : AppCompatActivity() {
         // 🔹 既にログイン済みならスキップ
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val savedToken = prefs.getString("minecraft_token", null)
-        if (savedToken != null) {
+        val savedUsername = prefs.getString("minecraft_username", null)
+        if (savedToken != null && savedUsername != null) {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
             return
@@ -79,6 +80,7 @@ class WelcomeActivity : AppCompatActivity() {
                 getSharedPreferences("prefs", MODE_PRIVATE)
                     .edit()
                     .putString("minecraft_token", mcToken)
+                    .putString("minecraft_username", username) // ← username も保存
                     .apply()
 
                 showConfirmDialog(username)
