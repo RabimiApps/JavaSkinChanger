@@ -1,5 +1,6 @@
 package com.rabimi.javaskinchanger
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.view.MotionEvent
 import org.rajawali3d.lights.DirectionalLight
@@ -7,9 +8,8 @@ import org.rajawali3d.materials.Material
 import org.rajawali3d.materials.textures.Texture
 import org.rajawali3d.primitives.Cube
 import org.rajawali3d.renderer.Renderer
-import org.rajawali3d.math.vector.Vector3
 
-class SkinRenderer(context: android.content.Context) : Renderer(context) {
+class SkinRenderer(context: Context) : Renderer(context) {
 
     private var skinBitmap: Bitmap? = null
     private lateinit var light: DirectionalLight
@@ -32,26 +32,26 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
 
     override fun initScene() {
         // ライト
-        light = DirectionalLight(1.0, -0.5, -1.0)
+        light = DirectionalLight(1.0f, -0.5f, -1.0f)
         light.setColor(1.0f, 1.0f, 1.0f)
-        light.power = 2.0
+        light.power = 2.0f
         currentScene.addLight(light)
 
         // 各部位をCubeで作成
-        head = Cube(1.0, 1.0, 1.0)
-        body = Cube(1.0, 1.5, 0.5)
-        leftArm = Cube(0.5, 1.5, 0.5)
-        rightArm = Cube(0.5, 1.5, 0.5)
-        leftLeg = Cube(0.5, 1.5, 0.5)
-        rightLeg = Cube(0.5, 1.5, 0.5)
+        head = Cube(1.0f, 1.0f, 1.0f)
+        body = Cube(1.0f, 1.5f, 0.5f)
+        leftArm = Cube(0.5f, 1.5f, 0.5f)
+        rightArm = Cube(0.5f, 1.5f, 0.5f)
+        leftLeg = Cube(0.5f, 1.5f, 0.5f)
+        rightLeg = Cube(0.5f, 1.5f, 0.5f)
 
         // 配置
-        head.y = 2.25
-        body.y = 0.75
-        leftArm.y = 0.75; leftArm.x = -0.75
-        rightArm.y = 0.75; rightArm.x = 0.75
-        leftLeg.y = -0.75; leftLeg.x = -0.25
-        rightLeg.y = -0.75; rightLeg.x = 0.25
+        head.y = 2.25f
+        body.y = 0.75f
+        leftArm.y = 0.75f; leftArm.x = -0.75f
+        rightArm.y = 0.75f; rightArm.x = 0.75f
+        leftLeg.y = -0.75f; leftLeg.x = -0.25f
+        rightLeg.y = -0.75f; rightLeg.x = 0.25f
 
         // デフォルトマテリアル
         val defaultMat = Material()
@@ -76,6 +76,7 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
         currentCamera.y = 1.0
     }
 
+    // スキンを適用
     fun updateSkin(bitmap: Bitmap) {
         skinBitmap = bitmap
         skinBitmap?.let { bmp ->
@@ -105,7 +106,21 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
                 val dy = event.y - lastY
                 angleY += dx * 0.5f
                 angleX += dy * 0.5f
-                currentScene.rotation = Vector3(angleX.toDouble(), angleY.toDouble(), 0.0)
+
+                // 各パーツを回転
+                head.rotation.y = angleY
+                head.rotation.x = angleX
+                body.rotation.y = angleY
+                body.rotation.x = angleX
+                leftArm.rotation.y = angleY
+                leftArm.rotation.x = angleX
+                rightArm.rotation.y = angleY
+                rightArm.rotation.x = angleX
+                leftLeg.rotation.y = angleY
+                leftLeg.rotation.x = angleX
+                rightLeg.rotation.y = angleY
+                rightLeg.rotation.x = angleX
+
                 lastX = event.x
                 lastY = event.y
             }
