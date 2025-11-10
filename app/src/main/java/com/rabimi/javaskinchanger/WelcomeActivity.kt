@@ -1,48 +1,208 @@
 package com.rabimi.javaskinchanger
 
-import android.content.Context
-import android.view.MotionEvent
-import org.rajawali3d.Object3D
-import org.rajawali3d.loader.LoaderOBJ
-import org.rajawali3d.loader.ParsingException
-import org.rajawali3d.materials.Material
-import org.rajawali3d.materials.textures.Texture
-import org.rajawali3d.renderer.Renderer
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.widget.Button
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsIntent
+import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
-class SkinRenderer(context: Context, private val skinUrl: String) : Renderer(context) {
+class WelcomeActivity : AppCompatActivity() {
 
-    private var skinModel: Object3D? = null
-    private var previousX = 0f
-    private var rotationSpeed = 0.5f
+    private val clientId = "00000000402b5328"
+    private val redirectUri = "ms-xal-00000000402b5328://auth"
+    private val scope = "XboxLive.signin offline_access"
 
-    override fun initScene() {
-        try {
-            val loader = LoaderOBJ(mContext.resources, mTextureManager, R.raw.minecraft_skin)
-            loader.parse()
-            skinModel = loader.parsedObject
-            skinModel?.material = Material().apply {
-                addTexture(Texture("skin", skinUrl))
-                colorInfluence = 0f
+    private lateinit var btnNext: Button
+    private val mainScope = MainScope()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_welcome)
+
+        btnNext = findViewById(R.id.btnNext)
+
+        // 🔹 既にログイン済みならスキップ
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val savedToken = prefs.getString("minecraft_token", null)
+        if (savedToken != null) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+
+        btnNext.setOnClickListener {
+            val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
+                    "?client_id=$clientId" +
+                    "&response_type=token" +
+                    "&redirect_uri=$redirectUri" +
+                    "&scope=$scope" +
+                    "&prompt=select_account"
+            CustomTabsIntent.Builder().build().launchUrl(this, Uri.parse(loginUrl))
+        }
+
+        handleRedirect(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleRedirect(intent)
+    }
+
+    private fun handleRedirect(intent: Intent?) {
+        intent?.data?.let { uri ->
+            if (uri.toString().startsWith(redirectUri)) {
+                val fragment = uri.fragment ?: ""
+                val token = fragment.split("&").find { it.startsWith("access_token=") }
+                    ?.substringAfter("=")
+                if (token != null) {
+                    fetchMinecraftTokenAndUsername(token)
+                } else {
+                    showErrorDialog("トークン取得失敗")
+                }
             }
-            currentScene.addChild(skinModel)
-            currentCamera.z = 6.0
-        } catch (e: ParsingException) {
+        }
+    }
+
+    private fun fetchMinecraftTokenAndUsername(msToken: String) {
+        mainScope.launch {
+            val result = withContext(Dispatchers.IO) { getMinecraftAuth(msToken) }
+            if (result != null) {
+                val (mcToken, username) = result
+
+                // 🔹 SharedPreferences に保存
+                getSharedPreferences("prefs", MODE_PRIVATE)
+                    .edit()
+                    .putString("minecraft_token", mcToken)
+                    .apply()
+
+                showConfirmDialog(username)
+            } else {
+                showErrorDialog("Minecraft API 取得失敗")
+            }
+        }
+    }
+
+    private fun getMinecraftAuth(msToken: String): Pair<String, String>? {
+        return try {
+            val xblResp = postJson(
+                URL("https://user.auth.xboxlive.com/user/authenticate"),
+                """
+                {
+                    "Properties": {
+                        "AuthMethod": "RPS",
+                        "SiteName": "user.auth.xboxlive.com",
+                        "RpsTicket": "d=$msToken"
+                    },
+                    "RelyingParty": "http://auth.xboxlive.com",
+                    "TokenType": "JWT"
+                }
+                """.trimIndent()
+            ) ?: return null
+
+            val xblToken = xblResp.getString("Token")
+            val userHash = xblResp.getJSONObject("DisplayClaims")
+                .getJSONArray("xui").getJSONObject(0).getString("uhs")
+
+            val xstsResp = postJson(
+                URL("https://xsts.auth.xboxlive.com/xsts/authorize"),
+                """
+                {
+                    "Properties": {
+                        "SandboxId": "RETAIL",
+                        "UserTokens": ["$xblToken"]
+                    },
+                    "RelyingParty": "rp://api.minecraftservices.com/",
+                    "TokenType": "JWT"
+                }
+                """.trimIndent()
+            ) ?: return null
+
+            val xstsToken = xstsResp.getString("Token")
+
+            val mcAuthResp = postJson(
+                URL("https://api.minecraftservices.com/authentication/login_with_xbox"),
+                """{"identityToken":"XBL3.0 x=$userHash;$xstsToken"}"""
+            ) ?: return null
+
+            val mcToken = mcAuthResp.getString("access_token")
+
+            val mcProfileResp = getJson(
+                URL("https://api.minecraftservices.com/minecraft/profile"),
+                mcToken
+            ) ?: return null
+
+            val username = mcProfileResp.getString("name")
+            mcToken to username
+        } catch (e: Exception) {
             e.printStackTrace()
+            null
         }
     }
 
-    override fun onRenderFrame(glUnused: javax.microedition.khronos.opengles.GL10?) {
-        super.onRenderFrame(glUnused)
-        skinModel?.rotateY(0.5)
+    private fun postJson(url: URL, body: String): JSONObject? {
+        return try {
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.outputStream.use { it.write(body.toByteArray()) }
+
+            val resp = conn.inputStream.bufferedReader().readText()
+            if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
-    override fun onTouchEvent(event: MotionEvent) {
-        when (event.action) {
-            MotionEvent.ACTION_MOVE -> {
-                val dx = event.x - previousX
-                skinModel?.rotateY(dx * rotationSpeed)
+    private fun getJson(url: URL, token: String): JSONObject? {
+        return try {
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+
+            val resp = conn.inputStream.bufferedReader().readText()
+            if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun showConfirmDialog(username: String) {
+        AlertDialog.Builder(this)
+            .setTitle("ログイン確認")
+            .setMessage("ログイン: $username\nこのアカウントでログインしますか？")
+            .setPositiveButton("はい") { _, _ ->
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
             }
-        }
-        previousX = event.x
+            .setNegativeButton("いいえ", null)
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun showErrorDialog(msg: String) {
+        AlertDialog.Builder(this)
+            .setTitle("エラー")
+            .setMessage(msg)
+            .setPositiveButton("OK", null)
+            .setCancelable(false)
+            .show()
+    }
+
+    override fun onDestroy() {
+        mainScope.cancel()
+        super.onDestroy()
     }
 }
