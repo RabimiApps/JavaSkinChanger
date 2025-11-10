@@ -1,6 +1,7 @@
 package com.rabimi.javaskinchanger
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
@@ -8,16 +9,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
-import org.rajawali3d.renderer.Renderer
-import org.rajawali3d.surface.RajawaliSurfaceView
-import org.rajawali3d.Object3D
-import org.rajawali3d.materials.textures.Texture
-import org.rajawali3d.loader.LoaderOBJ
-import java.io.InputStream
+
+import org.rajawali3d.view.SurfaceView
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var rajawaliView: RajawaliSurfaceView
+    private lateinit var rajawaliView: SurfaceView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -26,8 +23,8 @@ class MainActivity : AppCompatActivity() {
 
     private var selectedUri: Uri? = null
     private var mcToken: String? = null
+    private lateinit var skinRenderer: SkinRenderer
     private val mainScope = MainScope()
-    private var renderer: SkinRenderer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,15 +50,16 @@ class MainActivity : AppCompatActivity() {
 
         txtUsername.text = "ログイン中: $username"
 
-        renderer = SkinRenderer(this)
-        rajawaliView.setSurfaceRenderer(renderer)
+        // Rajawali Renderer セット
+        skinRenderer = SkinRenderer(this)
+        rajawaliView.setSurfaceRenderer(skinRenderer)
 
-        // 現在のスキンをロードして 3D に適用
+        // 現在のスキンをロード
         mainScope.launch {
             val skinUrl = withContext(Dispatchers.IO) {
                 MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
             }
-            renderer?.loadSkinFromUrl(skinUrl)
+            loadSkin3D(skinUrl)
         }
 
         btnSelect.setOnClickListener {
@@ -78,7 +76,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (success) {
                         Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                        selectedUri?.let { renderer?.loadSkinFromUri(it) }
+                        selectedUri?.let { loadSkin3D(it.toString()) }
                         fadeSwitch(btnUpload, btnSelect)
                     } else {
                         Toast.makeText(this@MainActivity, "スキンアップロード失敗", Toast.LENGTH_SHORT).show()
@@ -99,14 +97,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1 && resultCode == RESULT_OK) {
-            selectedUri = data?.data
-            selectedUri?.let {
-                renderer?.loadSkinFromUri(it)
-                fadeSwitch(btnSelect, btnUpload)
+    private fun loadSkin3D(skinPath: String) {
+        try {
+            val inputStream = if (skinPath.startsWith("content://")) {
+                contentResolver.openInputStream(Uri.parse(skinPath))
+            } else {
+                java.net.URL(skinPath).openStream()
             }
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+            skinRenderer.updateSkin(bitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -119,9 +122,19 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1 && resultCode == RESULT_OK) {
+            selectedUri = data?.data
+            selectedUri?.let {
+                loadSkin3D(it.toString())
+                fadeSwitch(btnSelect, btnUpload)
+            }
+        }
+    }
+
     override fun onDestroy() {
         mainScope.cancel()
-        rajawaliView.onPause()
         super.onDestroy()
     }
 }
