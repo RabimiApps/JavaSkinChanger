@@ -7,6 +7,7 @@ import org.rajawali3d.materials.Material
 import org.rajawali3d.materials.textures.Texture
 import org.rajawali3d.primitives.Cube
 import org.rajawali3d.renderer.Renderer
+import org.rajawali3d.math.vector.Vector3
 
 class SkinRenderer(context: android.content.Context) : Renderer(context) {
 
@@ -36,13 +37,13 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
         light.power = 2.0
         currentScene.addLight(light)
 
-        // 各部位をBoxで作成
-        head = Box(1.0, 1.0, 1.0)
-        body = Box(1.0, 1.5, 0.5)
-        leftArm = Box(0.5, 1.5, 0.5)
-        rightArm = Box(0.5, 1.5, 0.5)
-        leftLeg = Box(0.5, 1.5, 0.5)
-        rightLeg = Box(0.5, 1.5, 0.5)
+        // 各部位をCubeで作成
+        head = Cube(1.0, 1.0, 1.0)
+        body = Cube(1.0, 1.5, 0.5)
+        leftArm = Cube(0.5, 1.5, 0.5)
+        rightArm = Cube(0.5, 1.5, 0.5)
+        leftLeg = Cube(0.5, 1.5, 0.5)
+        rightLeg = Cube(0.5, 1.5, 0.5)
 
         // 配置
         head.y = 2.25
@@ -75,7 +76,6 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
         currentCamera.y = 1.0
     }
 
-    // スキンを適用
     fun updateSkin(bitmap: Bitmap) {
         skinBitmap = bitmap
         skinBitmap?.let { bmp ->
@@ -105,8 +105,7 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
                 val dy = event.y - lastY
                 angleY += dx * 0.5f
                 angleX += dy * 0.5f
-                currentScene.rotation.y = angleY
-                currentScene.rotation.x = angleX
+                currentScene.rotation = Vector3(angleX.toDouble(), angleY.toDouble(), 0.0)
                 lastX = event.x
                 lastY = event.y
             }
