@@ -23,8 +23,8 @@ class SkinRenderer(context: Context) : Renderer(context) {
 
     private var lastX = 0f
     private var lastY = 0f
-    private var angleX = 0.0
-    private var angleY = 0.0
+    private var angleX = 0f
+    private var angleY = 0f
 
     init {
         setFrameRate(60)
@@ -32,26 +32,26 @@ class SkinRenderer(context: Context) : Renderer(context) {
 
     override fun initScene() {
         // ライト
-        light = DirectionalLight(1.0, -0.5, -1.0)
-        light.setColor(1.0, 1.0, 1.0)
-        light.power = 2.0
+        light = DirectionalLight(1.0f, -0.5f, -1.0f)
+        light.setColor(1.0f, 1.0f, 1.0f)
+        light.power = 2.0f
         currentScene.addLight(light)
 
-        // 各部位をCubeで作成
-        head = Cube(1.0, 1.0, 1.0)
-        body = Cube(1.0, 1.5, 0.5)
-        leftArm = Cube(0.5, 1.5, 0.5)
-        rightArm = Cube(0.5, 1.5, 0.5)
-        leftLeg = Cube(0.5, 1.5, 0.5)
-        rightLeg = Cube(0.5, 1.5, 0.5)
+        // 各部位をCubeで作成（すべてFloat）
+        head = Cube(1.0f, 1.0f, 1.0f)
+        body = Cube(1.0f, 1.5f, 0.5f)
+        leftArm = Cube(0.5f, 1.5f, 0.5f)
+        rightArm = Cube(0.5f, 1.5f, 0.5f)
+        leftLeg = Cube(0.5f, 1.5f, 0.5f)
+        rightLeg = Cube(0.5f, 1.5f, 0.5f)
 
         // 配置
-        head.y = 2.25
-        body.y = 0.75
-        leftArm.y = 0.75; leftArm.x = -0.75
-        rightArm.y = 0.75; rightArm.x = 0.75
-        leftLeg.y = -0.75; leftLeg.x = -0.25
-        rightLeg.y = -0.75; rightLeg.x = 0.25
+        head.y = 2.25f
+        body.y = 0.75f
+        leftArm.y = 0.75f; leftArm.x = -0.75f
+        rightArm.y = 0.75f; rightArm.x = 0.75f
+        leftLeg.y = -0.75f; leftLeg.x = -0.25f
+        rightLeg.y = -0.75f; rightLeg.x = 0.25f
 
         // デフォルトマテリアル
         val defaultMat = Material()
@@ -72,16 +72,16 @@ class SkinRenderer(context: Context) : Renderer(context) {
         currentScene.addChild(rightLeg)
 
         // カメラ
-        currentCamera.z = 6.0
-        currentCamera.y = 1.0
+        currentCamera.z = 6.0f
+        currentCamera.y = 1.0f
     }
 
     // スキンを適用
     fun updateSkin(bitmap: Bitmap) {
         skinBitmap = bitmap
         skinBitmap?.let { bmp ->
-            val scaleX = bmp.width / 64.0
-            val scaleY = bmp.height / 64.0
+            val scaleX = bmp.width / 64f
+            val scaleY = bmp.height / 64f
 
             fun crop(x: Int, y: Int, w: Int, h: Int) =
                 Bitmap.createBitmap(bmp, (x * scaleX).toInt(), (y * scaleY).toInt(), (w * scaleX).toInt(), (h * scaleY).toInt())
@@ -104,16 +104,22 @@ class SkinRenderer(context: Context) : Renderer(context) {
             MotionEvent.ACTION_MOVE -> {
                 val dx = event.x - lastX
                 val dy = event.y - lastY
-                angleY += dx * 0.5
-                angleX += dy * 0.5
+                angleY += dx * 0.5f
+                angleX += dy * 0.5f
 
-                // 各パーツを回転（setRotationを使用）
-                head.setRotation(angleX, angleY, 0.0)
-                body.setRotation(angleX, angleY, 0.0)
-                leftArm.setRotation(angleX, angleY, 0.0)
-                rightArm.setRotation(angleX, angleY, 0.0)
-                leftLeg.setRotation(angleX, angleY, 0.0)
-                rightLeg.setRotation(angleX, angleY, 0.0)
+                // 各パーツを回転
+                head.rotation.x = angleX
+                head.rotation.y = angleY
+                body.rotation.x = angleX
+                body.rotation.y = angleY
+                leftArm.rotation.x = angleX
+                leftArm.rotation.y = angleY
+                rightArm.rotation.x = angleX
+                rightArm.rotation.y = angleY
+                leftLeg.rotation.x = angleX
+                leftLeg.rotation.y = angleY
+                rightLeg.rotation.x = angleX
+                rightLeg.rotation.y = angleY
 
                 lastX = event.x
                 lastY = event.y
