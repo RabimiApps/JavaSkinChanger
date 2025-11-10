@@ -5,7 +5,7 @@ import android.view.MotionEvent
 import org.rajawali3d.lights.DirectionalLight
 import org.rajawali3d.materials.Material
 import org.rajawali3d.materials.textures.Texture
-import org.rajawali3d.primitives.Box
+import org.rajawali3d.primitives.Cube
 import org.rajawali3d.renderer.Renderer
 
 class SkinRenderer(context: android.content.Context) : Renderer(context) {
@@ -13,12 +13,12 @@ class SkinRenderer(context: android.content.Context) : Renderer(context) {
     private var skinBitmap: Bitmap? = null
     private lateinit var light: DirectionalLight
 
-    private lateinit var head: Box
-    private lateinit var body: Box
-    private lateinit var leftArm: Box
-    private lateinit var rightArm: Box
-    private lateinit var leftLeg: Box
-    private lateinit var rightLeg: Box
+    private lateinit var head: Cube
+    private lateinit var body: Cube
+    private lateinit var leftArm: Cube
+    private lateinit var rightArm: Cube
+    private lateinit var leftLeg: Cube
+    private lateinit var rightLeg: Cube
 
     private var lastX = 0f
     private var lastY = 0f
