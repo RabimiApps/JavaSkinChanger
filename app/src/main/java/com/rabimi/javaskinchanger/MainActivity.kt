@@ -5,9 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.provider.MediaStore
-import android.widget.Button
-import android.widget.ImageView
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
@@ -29,7 +27,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        skinView = findViewById(R.id.skinView)
+        // ✅ SkinView3Dを動的に生成して配置
+        val skinContainer = findViewById<FrameLayout>(R.id.skinContainer)
+        skinView = SkinView3DSurfaceView(this)
+        skinContainer.addView(skinView)
+
         skinImage = findViewById(R.id.skinImage)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
