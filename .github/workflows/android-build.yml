@@ -58,7 +58,7 @@ jobs:
 
       # 5. APK ビルド（versionNameとversionCodeを反映）
       - name: Build Debug APK
-        run: gradle clean assembleDebug --refresh-dependencies --scan -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+        run: gradle clean assembleDebug --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
       # 6. APK をバージョン名入りでリネーム
       - name: Rename APK
