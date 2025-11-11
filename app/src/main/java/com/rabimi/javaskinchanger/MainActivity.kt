@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLogout: Button
 
     private val REQUEST_SKIN_PICK = 1001
-    private var pendingBitmap: Bitmap? = null  // SurfaceView未準備時の保留用
+    private var pendingBitmap: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,20 +37,33 @@ class MainActivity : AppCompatActivity() {
         btnLibrary = findViewById(R.id.btnLibrary)
         btnLogout = findViewById(R.id.btnLogout)
 
-        // ログイン済みユーザー名を取得
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val username = prefs.getString("minecraft_username", "ログイン中: ...")
+        val username = prefs.getString("minecraft_username", null)
+        val token = prefs.getString("minecraft_token", null)
+
+        // 🔸 ログインチェック
+        if (username.isNullOrBlank() || token.isNullOrBlank()) {
+            AlertDialog.Builder(this)
+                .setTitle("ログインが必要です")
+                .setMessage("ログイン情報が見つかりません。再ログインしてください。")
+                .setPositiveButton("OK") { _, _ ->
+                    startActivity(Intent(this, WelcomeActivity::class.java))
+                    finish()
+                }
+                .setCancelable(false)
+                .show()
+            return
+        }
+
         txtUsername.text = "ログイン中: $username"
 
-        // 画像選択ボタン
+        // 🔹 スキン選択
         btnSelect.setOnClickListener {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "image/*"
-            }
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
             startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
         }
 
-        // アップロードボタン（実際のAPI連携は別途）
+        // 🔹 アップロード（未実装）
         btnUpload.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("アップロード")
@@ -59,7 +72,7 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // スキンライブラリ
+        // 🔹 スキンライブラリ
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("ライブラリ")
@@ -68,13 +81,14 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // ログアウト
+        // 🔹 ログアウト
         btnLogout.setOnClickListener {
             prefs.edit().clear().apply()
+            startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
         }
 
-        // SurfaceViewの準備完了時に保留ビットマップがあれば反映
+        // Surface準備
         skinView.holder.addCallback(object : android.view.SurfaceHolder.Callback {
             override fun surfaceCreated(holder: android.view.SurfaceHolder) {
                 pendingBitmap?.let {
@@ -86,6 +100,7 @@ class MainActivity : AppCompatActivity() {
                     pendingBitmap = null
                 }
             }
+
             override fun surfaceChanged(holder: android.view.SurfaceHolder, format: Int, width: Int, height: Int) {}
             override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {}
         })
@@ -96,28 +111,16 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
             data?.data?.let { uri ->
                 try {
-                    // Bitmap取得
                     val bitmapOriginal: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                     val bitmap = bitmapOriginal.copy(Bitmap.Config.ARGB_8888, true)
-
-                    // サイズチェック（64x64にリサイズ）
-                    val resizedBitmap = if (bitmap.width != 64 || bitmap.height != 64) {
+                    val resized = if (bitmap.width != 64 || bitmap.height != 64)
                         Bitmap.createScaledBitmap(bitmap, 64, 64, true)
-                    } else bitmap
+                    else bitmap
 
-                    // 2Dプレビュー
-                    skinImage.setImageBitmap(resizedBitmap)
+                    skinImage.setImageBitmap(resized)
 
-                    // 3Dビューに反映
-                    if (skinView.holder.surface.isValid) {
-                        try {
-                            skinView.render(resizedBitmap)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    } else {
-                        pendingBitmap = resizedBitmap
-                    }
+                    if (skinView.holder.surface.isValid) skinView.render(resized)
+                    else pendingBitmap = resized
 
                 } catch (e: Exception) {
                     e.printStackTrace()
