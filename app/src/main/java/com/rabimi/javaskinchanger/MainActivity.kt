@@ -40,8 +40,8 @@ class MainActivity : AppCompatActivity() {
                 contentResolver.openInputStream(it).use { input ->
                     val bitmap = BitmapFactory.decodeStream(input)
                     if (bitmap != null) {
-                        skinImage.setImageBitmap(bitmap)      // 2D プレビュー
-                        setSkinToSkinView(bitmap)            // 3D SkinView に描画
+                        skinImage.setImageBitmap(bitmap)        // 2D プレビュー
+                        setSkinToSkinView(bitmap)              // 3D SkinView に適用
                     } else {
                         Toast.makeText(this, "画像の読み込みに失敗しました", Toast.LENGTH_SHORT).show()
                     }
@@ -57,7 +57,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // view 初期化
         skinView = findViewById(R.id.skinView)
         skinImage = findViewById(R.id.skinImage)
         txtUsername = findViewById(R.id.txtUsername)
@@ -66,13 +65,11 @@ class MainActivity : AppCompatActivity() {
         btnLibrary = findViewById(R.id.btnLibrary)
         btnLogout = findViewById(R.id.btnLogout)
 
-        // SharedPreferences or intent からトークン/ユーザー名取得
         val sp = getSharedPreferences("prefs", MODE_PRIVATE)
         mcToken = intent.getStringExtra("minecraft_token") ?: sp.getString("minecraft_token", null)
         val username = intent.getStringExtra("minecraft_username") ?: sp.getString("minecraft_username", "不明")
         txtUsername.text = "ログイン中: $username"
 
-        // オンラインスキンを取得して表示
         if (mcToken != null) {
             mainScope.launch {
                 val url = withContext(Dispatchers.IO) {
@@ -130,7 +127,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** URL からスキンを読み込み、3Dビューに描画 */
     private fun loadSkinFromUrl(url: String) {
         mainScope.launch {
             try {
@@ -138,8 +134,10 @@ class MainActivity : AppCompatActivity() {
                     val stream = java.net.URL(url).openStream()
                     BitmapFactory.decodeStream(stream).also { stream.close() }
                 }
-                bitmap?.let { setSkinToSkinView(it) }
-                bitmap?.let { skinImage.setImageBitmap(it) } // 2D プレビュー
+                bitmap?.let {
+                    skinImage.setImageBitmap(it)
+                    setSkinToSkinView(it)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(this@MainActivity, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -147,16 +145,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** SkinView3DSurfaceView に Bitmap を描画するラッパー関数 */
+    /**
+     * 3D SkinView に Bitmap を適用するラッパー
+     * SkinView3DSurfaceView 内の描画用メソッドを呼び出す
+     */
     private fun setSkinToSkinView(bitmap: Bitmap) {
-        skinView.post {
-            try {
-                // AAR 内のメソッドを呼ぶ
-                skinView.loadSkinFromBitmap(bitmap)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(this, "3Dスキンの表示に失敗しました", Toast.LENGTH_SHORT).show()
-            }
+        // ここで SkinView3DSurfaceView 内の Bitmap 適用メソッドを呼ぶ
+        // 例: skinView.setBitmap(bitmap) または独自に描画
+        try {
+            skinView.setBitmap(bitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "3D Skin表示に失敗しました", Toast.LENGTH_SHORT).show()
         }
     }
 
