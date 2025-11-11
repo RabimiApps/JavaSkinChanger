@@ -1,6 +1,6 @@
 package com.rabimi.javaskinchanger
 
-import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -23,30 +23,22 @@ class MainActivity : AppCompatActivity() {
     private lateinit var skinImage: ImageView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
-    private lateinit var btnUpload: Button
-    private lateinit var btnLibrary: Button
-    private lateinit var btnLogout: Button
 
     private val mainScope = MainScope()
     private var selectedUri: Uri? = null
-    private var mcToken: String? = null
 
+    // ActivityResult for picking image
     private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             selectedUri = it
-            try {
-                contentResolver.openInputStream(it).use { input ->
-                    val bitmap = BitmapFactory.decodeStream(input)
-                    if (bitmap != null) {
-                        skinImage.setImageBitmap(bitmap)                // 2D プレビュー
-                        skinView.loadSkinFromBitmap(bitmap)           // 新API適用
-                    } else {
-                        Toast.makeText(this, "画像の読み込みに失敗しました", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(this, "画像を開けませんでした", Toast.LENGTH_SHORT).show()
+            val bitmap = contentResolver.openInputStream(it)?.use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+            if (bitmap != null) {
+                skinImage.setImageBitmap(bitmap)        // 2D プレビュー
+                setSkinToView(bitmap)                    // 3D SkinView に描画
+            } else {
+                Toast.makeText(this, "画像の読み込みに失敗しました", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -59,62 +51,24 @@ class MainActivity : AppCompatActivity() {
         skinImage = findViewById(R.id.skinImage)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
-        btnUpload = findViewById(R.id.btnUpload)
-        btnLibrary = findViewById(R.id.btnLibrary)
-        btnLogout = findViewById(R.id.btnLogout)
 
-        val sp = getSharedPreferences("prefs", MODE_PRIVATE)
-        mcToken = intent.getStringExtra("minecraft_token") ?: sp.getString("minecraft_token", null)
-        val username = intent.getStringExtra("minecraft_username") ?: sp.getString("minecraft_username", "不明")
-        txtUsername.text = "ログイン中: $username"
-
-        if (mcToken != null) {
-            mainScope.launch {
-                val url = withContext(Dispatchers.IO) {
-                    try { MinecraftSkinManager.getCurrentSkinUrl(mcToken!!) } catch (e: Exception) { e.printStackTrace(); null }
-                }
-                url?.let { loadSkinFromUrl(it) }
-            }
-        }
-
-        btnSelect.setOnClickListener { selectImageLauncher.launch("image/*") }
-
-        btnUpload.setOnClickListener {
-            val uri = selectedUri
-            val token = mcToken
-            if (uri == null) { Toast.makeText(this, "先に画像を選択してください", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-            if (token == null) { Toast.makeText(this, "ログインしてください", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-
-            mainScope.launch(Dispatchers.IO) {
-                val success = try { MinecraftSkinManager.uploadSkin(this@MainActivity, uri, token) } catch (e: Exception) { e.printStackTrace(); false }
-                withContext(Dispatchers.Main) {
-                    if (success) Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                    else Toast.makeText(this@MainActivity, "スキンアップロードに失敗しました", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-
-        btnLibrary.setOnClickListener { Toast.makeText(this, "ライブラリを開きます (未実装)", Toast.LENGTH_SHORT).show() }
-        btnLogout.setOnClickListener {
-            sp.edit().clear().apply()
-            startActivity(Intent(this, WelcomeActivity::class.java))
-            finish()
+        btnSelect.setOnClickListener {
+            selectImageLauncher.launch("image/*")
         }
     }
 
-    private fun loadSkinFromUrl(url: String) {
-        mainScope.launch {
+    // --- SkinView3DSurfaceView にスキンを描画する自作関数 ---
+    private fun setSkinToView(bitmap: Bitmap) {
+        // SkinView3DSurfaceView の Surface がまだ初期化されていない場合があるので
+        // post で描画キューに入れると安全
+        skinView.post {
             try {
-                val bitmap = withContext(Dispatchers.IO) {
-                    java.net.URL(url).openStream().use { BitmapFactory.decodeStream(it) }
-                }
-                if (bitmap != null) {
-                    skinImage.setImageBitmap(bitmap)
-                    skinView.loadSkinFromBitmap(bitmap) // 新API
-                }
+                // ここで SkinView3DSurfaceView の描画メソッドを呼ぶ
+                // もし setBitmap 等が AAR にあればそれを使う
+                skinView.setBitmap(bitmap) // 仮にメソッドがある場合
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(this@MainActivity, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "スキンの表示に失敗しました", Toast.LENGTH_SHORT).show()
             }
         }
     }
