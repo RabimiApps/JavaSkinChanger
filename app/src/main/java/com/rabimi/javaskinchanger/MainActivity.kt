@@ -70,11 +70,12 @@ class MainActivity : AppCompatActivity() {
         val username = intent.getStringExtra("minecraft_username") ?: sp.getString("minecraft_username", "不明")
         txtUsername.text = "ログイン中: $username"
 
-        if (mcToken != null) {
+        // mcToken が null でない場合のみスキン読み込み
+        mcToken?.let { token ->
             mainScope.launch {
                 val url = withContext(Dispatchers.IO) {
                     try {
-                        MinecraftSkinManager.getCurrentSkinUrl(mcToken!!)
+                        MinecraftSkinManager.getCurrentSkinUrl(token)
                     } catch (e: Exception) {
                         e.printStackTrace()
                         null
@@ -82,11 +83,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 url?.let { loadSkinFromUrl(it) }
             }
+        } ?: run {
+            Toast.makeText(this, "ログイン情報がありません", Toast.LENGTH_SHORT).show()
         }
 
-        btnSelect.setOnClickListener {
-            selectImageLauncher.launch("image/*")
-        }
+        btnSelect.setOnClickListener { selectImageLauncher.launch("image/*") }
 
         btnUpload.setOnClickListener {
             val uri = selectedUri
@@ -107,11 +108,13 @@ class MainActivity : AppCompatActivity() {
                     false
                 }
                 withContext(Dispatchers.Main) {
-                    if (success) {
-                        Toast.makeText(this@MainActivity, "スキンをアップロードしました", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this@MainActivity, "スキンアップロードに失敗しました", Toast.LENGTH_SHORT).show()
-                    }
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (success) "スキンをアップロードしました" else "スキンアップロードに失敗しました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    // アップロード後に3D表示更新
+                    if (success) loadSkinFromUri(uri)
                 }
             }
         }
@@ -129,28 +132,46 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadSkinFromUrl(url: String) {
         mainScope.launch {
-            try {
-                val bitmap = withContext(Dispatchers.IO) {
-                    val stream = java.net.URL(url).openStream()
-                    BitmapFactory.decodeStream(stream).also { stream.close() }
+            val bitmap = withContext(Dispatchers.IO) {
+                try {
+                    BitmapFactory.decodeStream(java.net.URL(url).openStream())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
                 }
-                bitmap?.let {
-                    skinImage.setImageBitmap(it)
-                    setSkinToSkinView(it)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            }
+            bitmap?.let {
+                skinImage.setImageBitmap(it)
+                withContext(Dispatchers.Main) { setSkinToSkinView(it) }
+            } ?: run {
                 Toast.makeText(this@MainActivity, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    /**
-     * 3D SkinView に Bitmap を適用するラッパー
-     */
+    private fun loadSkinFromUri(uri: Uri) {
+        mainScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                try {
+                    contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
+            bitmap?.let {
+                skinImage.setImageBitmap(it)
+                withContext(Dispatchers.Main) { setSkinToSkinView(it) }
+            } ?: run {
+                Toast.makeText(this@MainActivity, "スキンの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun setSkinToSkinView(bitmap: Bitmap) {
         try {
-            skinView.render(bitmap) // ✅ render() を使う
+            // UIスレッドで描画
+            skinView.post { skinView.render(bitmap) }
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "3D Skin表示に失敗しました", Toast.LENGTH_SHORT).show()
