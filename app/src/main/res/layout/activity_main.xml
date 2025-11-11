@@ -9,7 +9,7 @@
 
     <!-- SkinViewAndroid の 3D 表示 -->
     <!-- 注意: クラス名は SkinViewAndroid に合わせる -->
-    <com.github.StoreForMinecraft.skinview.SkinViewAndroid
+    <com.github.storeforminecraft.skinview.SkinViewAndroid
         android:id="@+id/skinView"
         android:layout_width="200dp"
         android:layout_height="200dp"
