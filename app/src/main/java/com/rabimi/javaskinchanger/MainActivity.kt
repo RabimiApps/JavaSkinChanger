@@ -10,6 +10,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import android.view.SurfaceHolder
 import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
 
 class MainActivity : AppCompatActivity() {
@@ -23,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLogout: Button
 
     private val REQUEST_SKIN_PICK = 1001
+    private var pendingBitmap: Bitmap? = null // Surface準備まで保留するBitmap
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,15 +43,26 @@ class MainActivity : AppCompatActivity() {
         val username = prefs.getString("minecraft_username", "ログイン中: ...")
         txtUsername.text = "ログイン中: $username"
 
+        // Surface準備ができたら保留中Bitmapを反映
+        skinView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                pendingBitmap?.let {
+                    skinView.render(it)
+                    pendingBitmap = null
+                }
+            }
+
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceDestroyed(holder: SurfaceHolder) {}
+        })
+
         // 画像選択ボタン
         btnSelect.setOnClickListener {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "image/*"
-            }
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
             startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
         }
 
-        // アップロードボタン（実際のAPI連携は別途）
+        // アップロードボタン（仮）
         btnUpload.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("アップロード")
@@ -58,7 +71,7 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // スキンライブラリ
+        // スキンライブラリ（仮）
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("ライブラリ")
@@ -78,13 +91,19 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
             data?.data?.let { uri ->
-                val bitmap: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                // BitmapをARGB_8888に変換して安全に渡す
+                val bitmapOriginal: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                val bitmap = bitmapOriginal.copy(Bitmap.Config.ARGB_8888, true)
 
-                // 3Dスキンに即反映
-                skinView.render(bitmap)
-
-                // 2Dプレビューも更新
+                // 2Dプレビューを即更新
                 skinImage.setImageBitmap(bitmap)
+
+                // 3Dビューに反映（Surface準備できてなければpendingBitmapに保留）
+                if (skinView.holder.surface.isValid) {
+                    skinView.render(bitmap)
+                } else {
+                    pendingBitmap = bitmap
+                }
             }
         }
     }
