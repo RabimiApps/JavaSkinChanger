@@ -10,7 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.github.storeforminecraft.skinview.SkinViewAndroid
+import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var skinView: SkinViewAndroid
+    private lateinit var skinView: SkinView3DSurfaceView
     private lateinit var skinImage: ImageView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
