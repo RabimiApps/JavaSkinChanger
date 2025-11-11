@@ -7,15 +7,13 @@
     android:layout_height="match_parent"
     android:padding="24dp">
 
-    <!-- SkinViewAndroid の 3D 表示 -->
-    <!-- 注意: クラス名は SkinViewAndroid に合わせる -->
-    <dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
-        android:id="@+id/skinView"
+    <!-- SkinViewAndroid の 3D 表示（コードから動的追加） -->
+    <FrameLayout
+        android:id="@+id/skinContainer"
         android:layout_width="200dp"
         android:layout_height="200dp"
         android:layout_marginBottom="12dp" />
 
-    <!-- 2D プレビュー -->
     <ImageView
         android:id="@+id/skinImage"
         android:layout_width="200dp"
@@ -33,7 +31,6 @@
         android:textSize="16sp"
         android:layout_marginBottom="20dp" />
 
-    <!-- ボタン群 -->
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
