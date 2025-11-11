@@ -56,8 +56,11 @@ dependencies {
     // AppAuth for OAuth2
     implementation "net.openid:appauth:0.11.1"
 
-    // 🔹 SkinViewAndroid (SVA) マイクラの3Dスキン表示用
+    // SkinViewAndroid (3Dスキン表示)
     implementation 'com.github.storeforminecraft:SkinViewAndroid:0.1.3'
+
+    // JSON パーサー（JSONObject 用）
+    implementation 'org.json:json:20230227'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
