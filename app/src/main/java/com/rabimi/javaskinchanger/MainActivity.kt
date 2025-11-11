@@ -147,13 +147,10 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 3D SkinView に Bitmap を適用するラッパー
-     * SkinView3DSurfaceView 内の描画用メソッドを呼び出す
      */
     private fun setSkinToSkinView(bitmap: Bitmap) {
-        // ここで SkinView3DSurfaceView 内の Bitmap 適用メソッドを呼ぶ
-        // 例: skinView.setBitmap(bitmap) または独自に描画
         try {
-            skinView.setBitmap(bitmap)
+            skinView.render(bitmap) // ✅ render() を使う
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "3D Skin表示に失敗しました", Toast.LENGTH_SHORT).show()
