@@ -1,206 +1,161 @@
 package com.rabimi.javaskinchanger
 
+import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
-import androidx.appcompat.app.AlertDialog
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.browser.customtabs.CustomTabsIntent
+import com.github.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
 import kotlinx.coroutines.*
-import org.json.JSONObject
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-class WelcomeActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() {
 
-    private val clientId = "00000000402b5328"
-    private val redirectUri = "ms-xal-00000000402b5328://auth"
-    private val scope = "XboxLive.signin offline_access"
+    private lateinit var txtUsername: TextView
+    private lateinit var btnUpload: Button
+    private lateinit var btnSelect: Button
+    private lateinit var btnLogout: Button
+    private lateinit var btnLibrary: Button
+    private lateinit var skinView: SkinView3DSurfaceView
+    private lateinit var skinImage: ImageView
 
-    private lateinit var btnNext: Button
+    private var skinBitmap: Bitmap? = null
+    private val PICK_IMAGE = 100
+
     private val mainScope = MainScope()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_welcome)
+        setContentView(R.layout.activity_main)
 
-        btnNext = findViewById(R.id.btnNext)
+        txtUsername = findViewById(R.id.txtUsername)
+        btnUpload = findViewById(R.id.btnUpload)
+        btnSelect = findViewById(R.id.btnSelect)
+        btnLogout = findViewById(R.id.btnLogout)
+        btnLibrary = findViewById(R.id.btnLibrary)
+        skinView = findViewById(R.id.skinView)
+        skinImage = findViewById(R.id.skinImage)
 
-        // 🔹 既にログイン済みならスキップ
+        // 🔹 SharedPreferences からトークンとユーザー名を取得
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val savedToken = prefs.getString("minecraft_token", null)
-        val savedUsername = prefs.getString("minecraft_username", null)
-        if (savedToken != null && savedUsername != null) {
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-            return
+        val mcToken = prefs.getString("minecraft_token", null)
+        val username = prefs.getString("minecraft_username", "ゲスト")
+        txtUsername.text = "ログイン中: $username"
+
+        // 🔹 画像選択
+        btnSelect.setOnClickListener {
+            val intent = Intent(Intent.ACTION_PICK)
+            intent.type = "image/*"
+            startActivityForResult(intent, PICK_IMAGE)
         }
 
-        btnNext.setOnClickListener {
-            val loginUrl = "https://login.live.com/oauth20_authorize.srf" +
-                    "?client_id=$clientId" +
-                    "&response_type=token" +
-                    "&redirect_uri=$redirectUri" +
-                    "&scope=$scope" +
-                    "&prompt=select_account"
-            CustomTabsIntent.Builder().build().launchUrl(this, Uri.parse(loginUrl))
-        }
-
-        handleRedirect(intent)
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        handleRedirect(intent)
-    }
-
-    private fun handleRedirect(intent: Intent?) {
-        intent?.data?.let { uri ->
-            if (uri.toString().startsWith(redirectUri)) {
-                val fragment = uri.fragment ?: ""
-                val token = fragment.split("&").find { it.startsWith("access_token=") }
-                    ?.substringAfter("=")
-                if (token != null) {
-                    fetchMinecraftTokenAndUsername(token)
-                } else {
-                    showErrorDialog("トークン取得失敗")
+        // 🔹 スキンアップロード
+        btnUpload.setOnClickListener {
+            if (skinBitmap == null) {
+                Toast.makeText(this, "スキン画像を選択してください", Toast.LENGTH_SHORT).show()
+            } else if (mcToken != null) {
+                mainScope.launch {
+                    val success = uploadSkin(skinBitmap!!, mcToken)
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            if (success) "アップロード成功" else "アップロード失敗",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
-            }
-        }
-    }
-
-    private fun fetchMinecraftTokenAndUsername(msToken: String) {
-        mainScope.launch {
-            val result = withContext(Dispatchers.IO) { getMinecraftAuth(msToken) }
-            if (result != null) {
-                val (mcToken, username) = result
-
-                // 🔹 SharedPreferences に保存
-                getSharedPreferences("prefs", MODE_PRIVATE)
-                    .edit()
-                    .putString("minecraft_token", mcToken)
-                    .putString("minecraft_username", username) // ← username も保存
-                    .apply()
-
-                showConfirmDialog(username)
             } else {
-                showErrorDialog("Minecraft API 取得失敗")
+                Toast.makeText(this, "ログインしてください", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 🔹 ログアウト
+        btnLogout.setOnClickListener {
+            prefs.edit().clear().apply()
+            startActivity(Intent(this, WelcomeActivity::class.java))
+            finish()
+        }
+
+        // 🔹 ライブラリ
+        btnLibrary.setOnClickListener {
+            Toast.makeText(this, "スキンライブラリ機能は未実装", Toast.LENGTH_SHORT).show()
+        }
+
+        // 🔹 デフォルトのスキンを取得して表示
+        if (mcToken != null) {
+            mainScope.launch {
+                val bitmap = fetchSkin(mcToken)
+                if (bitmap != null) {
+                    skinBitmap = bitmap
+                    runOnUiThread {
+                        skinImage.setImageBitmap(bitmap)
+                        skinView.setSkinBitmap(bitmap) // 3D表示
+                    }
+                }
             }
         }
     }
 
-    private fun getMinecraftAuth(msToken: String): Pair<String, String>? {
-        return try {
-            val xblResp = postJson(
-                URL("https://user.auth.xboxlive.com/user/authenticate"),
-                """
-                {
-                    "Properties": {
-                        "AuthMethod": "RPS",
-                        "SiteName": "user.auth.xboxlive.com",
-                        "RpsTicket": "d=$msToken"
-                    },
-                    "RelyingParty": "http://auth.xboxlive.com",
-                    "TokenType": "JWT"
-                }
-                """.trimIndent()
-            ) ?: return null
-
-            val xblToken = xblResp.getString("Token")
-            val userHash = xblResp.getJSONObject("DisplayClaims")
-                .getJSONArray("xui").getJSONObject(0).getString("uhs")
-
-            val xstsResp = postJson(
-                URL("https://xsts.auth.xboxlive.com/xsts/authorize"),
-                """
-                {
-                    "Properties": {
-                        "SandboxId": "RETAIL",
-                        "UserTokens": ["$xblToken"]
-                    },
-                    "RelyingParty": "rp://api.minecraftservices.com/",
-                    "TokenType": "JWT"
-                }
-                """.trimIndent()
-            ) ?: return null
-
-            val xstsToken = xstsResp.getString("Token")
-
-            val mcAuthResp = postJson(
-                URL("https://api.minecraftservices.com/authentication/login_with_xbox"),
-                """{"identityToken":"XBL3.0 x=$userHash;$xstsToken"}"""
-            ) ?: return null
-
-            val mcToken = mcAuthResp.getString("access_token")
-
-            val mcProfileResp = getJson(
-                URL("https://api.minecraftservices.com/minecraft/profile"),
-                mcToken
-            ) ?: return null
-
-            val username = mcProfileResp.getString("name")
-            mcToken to username
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == PICK_IMAGE && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { uri ->
+                val inputStream: InputStream? = contentResolver.openInputStream(uri)
+                skinBitmap = BitmapFactory.decodeStream(inputStream)
+                skinImage.setImageBitmap(skinBitmap)
+                skinBitmap?.let { skinView.setSkinBitmap(it) }
+            }
         }
     }
 
-    private fun postJson(url: URL, body: String): JSONObject? {
-        return try {
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.doOutput = true
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.outputStream.use { it.write(body.toByteArray()) }
-
-            val resp = conn.inputStream.bufferedReader().readText()
-            if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun getJson(url: URL, token: String): JSONObject? {
-        return try {
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
+    // 🔹 Minecraft API からスキン取得（PNG）
+    private suspend fun fetchSkin(token: String): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            val conn = URL("https://api.minecraftservices.com/minecraft/profile/skins").openConnection() as HttpURLConnection
             conn.setRequestProperty("Authorization", "Bearer $token")
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
 
-            val resp = conn.inputStream.bufferedReader().readText()
-            if (conn.responseCode in 200..299 && resp.isNotEmpty()) JSONObject(resp) else null
+            if (conn.responseCode in 200..299) {
+                val skinJson = conn.inputStream.bufferedReader().readText()
+                val url = JSONObject(skinJson)
+                    .getJSONArray("skins")
+                    .getJSONObject(0)
+                    .getString("url")
+                return@withContext BitmapFactory.decodeStream(URL(url).openStream())
+            }
         } catch (e: Exception) {
             e.printStackTrace()
-            null
         }
+        null
     }
 
-    private fun showConfirmDialog(username: String) {
-        AlertDialog.Builder(this)
-            .setTitle("ログイン確認")
-            .setMessage("ログイン: $username\nこのアカウントでログインしますか？")
-            .setPositiveButton("はい") { _, _ ->
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
-            }
-            .setNegativeButton("いいえ", null)
-            .setCancelable(false)
-            .show()
-    }
+    // 🔹 Minecraft API にスキンアップロード
+    private suspend fun uploadSkin(bitmap: Bitmap, token: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // 簡易的な例: PNGをByteArrayに変換してPUTリクエスト
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            val bytes = stream.toByteArray()
 
-    private fun showErrorDialog(msg: String) {
-        AlertDialog.Builder(this)
-            .setTitle("エラー")
-            .setMessage(msg)
-            .setPositiveButton("OK", null)
-            .setCancelable(false)
-            .show()
+            val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST" // POST か PUT
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "image/png")
+            conn.doOutput = true
+            conn.outputStream.use { it.write(bytes) }
+
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     override fun onDestroy() {
