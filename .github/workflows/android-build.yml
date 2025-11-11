@@ -43,6 +43,19 @@ jobs:
           echo "Version name: $VERSION_NAME"
           echo "Version code: $VERSION_CODE"
 
+      - name: Wait for JitPack availability
+        run: |
+          for i in {1..5}; do
+            if curl -fsSL https://jitpack.io/com/github/StoreForMinecraft/SkinViewAndroid/0.1.3/SkinViewAndroid-0.1.3.pom -o /dev/null; then
+              echo "JitPack is reachable!"
+              break
+            else
+              echo "JitPack not reachable, retrying in 15s..."
+              sleep 15
+            fi
+          done
+
+
       # 5. APK ビルド（versionNameとversionCodeを反映）
       - name: Build Debug APK
         run: gradle clean assembleDebug --refresh-dependencies --scan -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
