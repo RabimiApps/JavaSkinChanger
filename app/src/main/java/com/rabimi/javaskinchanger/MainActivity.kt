@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 val bitmap: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
 
                 // 3Dスキンに即反映
-                skinView.setSkin(bitmap)
+                skinView.render(bitmap)
 
                 // 2Dプレビューも更新
                 skinImage.setImageBitmap(bitmap)
