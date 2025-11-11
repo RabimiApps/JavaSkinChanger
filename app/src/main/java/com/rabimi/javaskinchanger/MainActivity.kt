@@ -8,7 +8,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import com.github.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+import org.json.JSONObject
 import kotlinx.coroutines.*
 import java.io.InputStream
 import java.net.HttpURLConnection
