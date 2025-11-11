@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        skinView = findViewById(R.id.skinView)
+        val skinView = findViewById<SkinViewAndroid>(R.id.skinView)
         skinImage = findViewById(R.id.skinImage)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
