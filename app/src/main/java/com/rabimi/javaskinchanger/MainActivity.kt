@@ -67,7 +67,9 @@ class MainActivity : AppCompatActivity() {
         try {
             skinView.setZOrderOnTop(false)
             skinView.setZOrderMediaOverlay(true)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            // 無視
+        }
 
         // Views
         txtUsername = findViewById(R.id.txtUsername)
@@ -106,19 +108,35 @@ class MainActivity : AppCompatActivity() {
             val trackColors = intArrayOf(colorUploadTarget, Color.parseColor("#D0D0D0"))
             switchModel.thumbTintList = ColorStateList(thumbStates, thumbColors)
             switchModel.trackTintList = ColorStateList(thumbStates, trackColors)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            // ignore
+        }
 
         // スイッチの変更を反映（Steve <-> Alex）
         switchModel.setOnCheckedChangeListener { _, isChecked ->
-            skinVariant = if (isChecked) "slim" else "classic"
-            lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
+            if (isChecked) {
+                skinVariant = "slim"
+                lblModel.text = "モデル: Alex"
+            } else {
+                skinVariant = "classic"
+                lblModel.text = "モデル: Steve"
+            }
 
             // 既に選択されたスキンがあれば preview として再レンダリング
-            currentSkinBitmap?.let { bmp ->
+            if (currentSkinBitmap != null) {
                 applyVariantToSkinView()
-                if (skinView.holder.surface.isValid) {
-                    try { skinView.render(bmp) } catch (e: Exception) { e.printStackTrace() }
-                } else { pendingBitmap = bmp }
+                val bmp = currentSkinBitmap
+                if (bmp != null) {
+                    if (skinView.holder.surface.isValid) {
+                        try {
+                            skinView.render(bmp)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    } else {
+                        pendingBitmap = bmp
+                    }
+                }
             }
         }
 
@@ -173,14 +191,17 @@ class MainActivity : AppCompatActivity() {
         // Surface 準備
         skinView.holder.addCallback(object : android.view.SurfaceHolder.Callback {
             override fun surfaceCreated(holder: android.view.SurfaceHolder) {
-                pendingBitmap?.let {
-                    try {
-                        applyVariantToSkinView()
-                        skinView.render(it)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                if (pendingBitmap != null) {
+                    val pb = pendingBitmap
+                    if (pb != null) {
+                        try {
+                            applyVariantToSkinView()
+                            skinView.render(pb)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                        pendingBitmap = null
                     }
-                    pendingBitmap = null
                 }
             }
 
@@ -192,14 +213,16 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
+            if (data != null && data.data != null) {
+                val uri = data.data
                 try {
                     val bitmapOriginal: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                     val bitmap = bitmapOriginal.copy(Bitmap.Config.ARGB_8888, true)
-                    val resized = if (bitmap.width != 64 || bitmap.height != 64) {
-                        Bitmap.createScaledBitmap(bitmap, 64, 64, true)
+                    val resized: Bitmap
+                    if (bitmap.width != 64 || bitmap.height != 64) {
+                        resized = Bitmap.createScaledBitmap(bitmap, 64, 64, true)
                     } else {
-                        bitmap
+                        resized = bitmap
                     }
 
                     // 現在のスキンを保持
@@ -220,11 +243,10 @@ class MainActivity : AppCompatActivity() {
                     // 選択済みにして Upload ボタンを表示・アニメーション
                     if (!hasSelectedSkin) {
                         hasSelectedSkin = true
-                        // Upload ボタンを表示し、水色の Select ボタンはそのままにする
+                        // Upload ボタンを表示し、灰→緑にアニメーション
                         btnUpload.visibility = View.VISIBLE
                         animateButtonToColor(btnUpload, colorUploadInitial, colorUploadTarget)
                     } else {
-                        // すでに選択済みでも、Upload ボタンが隠れていれば表示する
                         if (btnUpload.visibility != View.VISIBLE) {
                             btnUpload.visibility = View.VISIBLE
                             btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
@@ -239,6 +261,13 @@ class MainActivity : AppCompatActivity() {
                         .setPositiveButton("OK", null)
                         .show()
                 }
+            } else {
+                // data または data.data が null の場合のフォールバック
+                AlertDialog.Builder(this)
+                    .setTitle("エラー")
+                    .setMessage("画像が選択されませんでした。")
+                    .setPositiveButton("OK", null)
+                    .show()
             }
         }
     }
@@ -249,12 +278,20 @@ class MainActivity : AppCompatActivity() {
             val m = skinView.javaClass.getMethod("setVariant", String::class.java)
             m.invoke(skinView, skinVariant)
             return
-        } catch (_: NoSuchMethodException) {}
+        } catch (_: NoSuchMethodException) {
+            // continue
+        } catch (_: Exception) {
+            // ignore other reflection errors
+        }
         try {
             val m2 = skinView.javaClass.getMethod("setSlim", java.lang.Boolean.TYPE)
             m2.invoke(skinView, skinVariant == "slim")
             return
-        } catch (_: NoSuchMethodException) {}
+        } catch (_: NoSuchMethodException) {
+            // no-op
+        } catch (_: Exception) {
+            // ignore
+        }
         // ライブラリ側で別 API の場合はここに追記してください
     }
 
@@ -271,10 +308,11 @@ class MainActivity : AppCompatActivity() {
             override fun onAnimationStart(animation: Animator) {}
             override fun onAnimationEnd(animation: Animator) {
                 button.isEnabled = true
-                // 確実に最終色をセット
                 button.backgroundTintList = ColorStateList.valueOf(toColor)
             }
-            override fun onAnimationCancel(animation: Animator) { button.isEnabled = true }
+            override fun onAnimationCancel(animation: Animator) {
+                button.isEnabled = true
+            }
             override fun onAnimationRepeat(animation: Animator) {}
         })
         anim.start()
