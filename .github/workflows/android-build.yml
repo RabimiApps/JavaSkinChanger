@@ -76,6 +76,10 @@ jobs:
           build-tools: 33.0.2
           license-accept: true
 
+      - name: Install build-tools 33.0.2
+        run: |
+          sdkmanager --install "build-tools;33.0.2"
+
       # 8. Keystore 復元
       - name: Restore keystore
         run: |
