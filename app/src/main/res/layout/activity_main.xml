@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:gravity="center"
     android:background="#FAFAFA"
@@ -29,7 +30,32 @@
         android:text="ログイン中: ..."
         android:textColor="#222222"
         android:textSize="16sp"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="12dp" />
+
+    <!-- モデル切替: iOS風のスイッチ（Steve / Alex） -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:id="@+id/lblModel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="モデル: Steve"
+            android:textSize="16sp"
+            android:textColor="#222222" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchModel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:showText="false" />
+    </LinearLayout>
 
     <LinearLayout
         android:orientation="horizontal"
