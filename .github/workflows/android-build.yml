@@ -84,7 +84,7 @@ jobs:
       # 9. APK 署名
       - name: Sign APK
         run: |
-          ANDROID_HOME=$HOME/Android/Sdk
+          ANDROID_HOME=/usr/local/lib/android/sdk
           APK_UNSIGN=app/build/outputs/apk/release/app-release-unsigned.apk
           APK_SIGNED=output/JSCBuild-${{ env.VERSION_NAME }}.apk
           mkdir -p output
