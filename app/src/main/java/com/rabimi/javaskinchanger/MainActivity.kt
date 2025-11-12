@@ -5,7 +5,9 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Bitmap.CompressFormat
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -57,24 +59,27 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // skinContainer を先に取得
+        // skinContainer を取得してから SkinView を動的生成
         skinContainer = findViewById(R.id.skinContainer)
 
-        // SkinView を動的に生成して追加（XML で直接置かない）
         skinView = SkinView3DSurfaceView(this)
         val lp = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
-        // 必要ならマージンや重なり調整もここで設定可能
         skinContainer.addView(skinView, lp)
 
-        // デバッグ: 背景を付けて見えるか確認しやすくする（不要なら削除）
+        // 前面化を試す
         try {
-            skinView.setBackgroundColor(Color.parseColor("#EEEEEE"))
-        } catch (_: Exception) {}
+            skinView.bringToFront()
+            skinView.requestLayout()
+            skinView.invalidate()
+            Log.d(TAG, "Called bringToFront/requestLayout/invalidate on skinView")
+        } catch (e: Exception) {
+            Log.w(TAG, "bringToFront/requestLayout failed: ${e.message}")
+        }
 
-        // Views
+        // Views 初期化
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -98,13 +103,13 @@ class MainActivity : AppCompatActivity() {
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
-        // skinContainer / skinView サイズ確認ログ
+        // デバッグ: skinContainer / skinView サイズを取得
         skinContainer.post {
             Log.d(TAG, "skinContainer size: ${skinContainer.width}x${skinContainer.height}")
             Log.d(TAG, "skinView size: ${skinView.width}x${skinView.height}, visible=${skinView.visibility}")
         }
 
-        // skinView メソッド一覧（variant API 探し用）
+        // skinView のメソッド一覧（あればログ）
         try {
             val methods = skinView.javaClass.methods
             val names = methods.map { it.name }.distinct().sorted().joinToString(", ")
@@ -180,10 +185,21 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
-        // Surface のコールバックにログを追加
+        // Surface のコールバックにログを追加。ここでテストビットマップを描画する
         skinView.holder.addCallback(object : android.view.SurfaceHolder.Callback {
             override fun surfaceCreated(holder: android.view.SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
+                // テストビットマップを作って render を試す
+                val testBmp = createTestBitmap(64, 64)
+                try {
+                    applyVariantToSkinView()
+                    skinView.render(testBmp)
+                    Log.d(TAG, "render test bitmap in surfaceCreated -> success")
+                } catch (e: Exception) {
+                    Log.e(TAG, "render test bitmap in surfaceCreated -> failed: ${e.message}")
+                    e.printStackTrace()
+                }
+
                 if (pendingBitmap != null) {
                     val pb = pendingBitmap
                     if (pb != null) {
@@ -207,6 +223,24 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "surfaceDestroyed")
             }
         })
+    }
+
+    // 小さなチェッカーパターンのテストビットマップを作る（スキン形式のチェック用）
+    private fun createTestBitmap(w: Int, h: Int): Bitmap {
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint()
+        val cell = w / 8
+        for (y in 0 until 8) {
+            for (x in 0 until 8) {
+                paint.color = if ((x + y) % 2 == 0) Color.LTGRAY else Color.DKGRAY
+                canvas.drawRect((x * cell).toFloat(), (y * cell).toFloat(), ((x + 1) * cell).toFloat(), ((y + 1) * cell).toFloat(), paint)
+            }
+        }
+        // 小さく目立つアクセントを描く
+        paint.color = Color.MAGENTA
+        canvas.drawCircle((w * 0.75).toFloat(), (h * 0.25).toFloat(), (w * 0.08).toFloat(), paint)
+        return bmp
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
