@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var skinView: SkinView3DSurfaceView
+    private lateinit var skinContainer: FrameLayout
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -56,8 +57,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // XML に直接置いた SkinView を取得する（動的追加はやめる）
+        // XML に直接置いた SkinView を取得する
         skinView = findViewById(R.id.skinView)
+
+        // skinContainer をプロパティとして取得（修正点）
+        skinContainer = findViewById(R.id.skinContainer)
 
         // デバッグ: 見やすくするため背景色を設定（本番で不要なら削除）
         try {
@@ -99,7 +103,6 @@ class MainActivity : AppCompatActivity() {
         lblModel.text = "モデル: Steve"
 
         // デバッグ: skinView / skinContainer のサイズを確実に知るため post
-        val skinContainer = findViewById<FrameLayout>(R.id.skinContainer)
         skinContainer.post {
             val w = skinContainer.width
             val h = skinContainer.height
@@ -131,7 +134,6 @@ class MainActivity : AppCompatActivity() {
 
             // 既に画像があるなら再描画
             if (currentSkinBitmap != null) {
-                Log.d(TAG, "Re-rendering with variant=$skinVariant")
                 applyVariantToSkinView()
                 val bmp = currentSkinBitmap
                 if (bmp != null) {
