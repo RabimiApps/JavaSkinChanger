@@ -25,7 +25,6 @@ import java.net.URL
 class MainActivity : AppCompatActivity() {
 
     private lateinit var skinView: SkinView3DSurfaceView
-    private lateinit var skinImage: ImageView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -40,12 +39,13 @@ class MainActivity : AppCompatActivity() {
     // 現在表示しているスキンのビットマップ（アップロード時に使用）
     private var currentSkinBitmap: Bitmap? = null
 
-    // 色: 初期の水色と選択後の緑
-    private val colorInitial = Color.parseColor("#4FC3F7") // 水色
-    private val colorSelected = Color.parseColor("#4CAF50") // 緑
+    // 色: 初期の水色(選択ボタン) と アップロードの緑
+    private val colorSelect = Color.parseColor("#4FC3F7") // 水色
+    private val colorUploadTarget = Color.parseColor("#4CAF50") // 緑
+    private val colorUploadInitial = Color.parseColor("#BDBDBD") // アップロード初期色（灰）
 
-    // 選択→アップロード状態かどうか
-    private var isUploadState = false
+    // 選択フラグ
+    private var hasSelectedSkin = false
 
     // モデル (classic = Steve, slim = Alex)
     private var skinVariant: String = "classic"
@@ -54,12 +54,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // ✅ SkinView3Dを動的に生成して配置
+        // SkinView3D を動的に生成して配置（LayoutParams を明示）
         val skinContainer = findViewById<FrameLayout>(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
-        skinContainer.addView(skinView)
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        skinContainer.addView(skinView, lp)
 
-        skinImage = findViewById(R.id.skinImage)
+        // Z-order を試しに設定（他の View に隠れる場合に調整）
+        try {
+            skinView.setZOrderOnTop(false)
+            skinView.setZOrderMediaOverlay(true)
+        } catch (_: Exception) {}
+
+        // Views
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -69,18 +79,19 @@ class MainActivity : AppCompatActivity() {
         lblModel = findViewById(R.id.lblModel)
 
         // 初期 UI セットアップ
-        btnSelect.backgroundTintList = ColorStateList.valueOf(colorInitial)
+        btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.text = "画像を選択"
         btnSelect.isAllCaps = false
 
-        // アップロードは初期時非表示（要望）
+        // アップロードは初期時は見えない（後で表示）
         btnUpload.visibility = View.GONE
+        btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadInitial)
+        btnUpload.isAllCaps = false
+        btnUpload.text = "アップロード"
 
-        // スキンライブラリを紫に変更（要望）
+        // スキンライブラリを紫、ログアウトを赤
         btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0"))
         btnLibrary.isAllCaps = false
-
-        // ログアウトを赤
         btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336"))
         btnLogout.isAllCaps = false
 
@@ -88,28 +99,26 @@ class MainActivity : AppCompatActivity() {
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
-        // スイッチの色を少し iOS風に調整
+        // スイッチ色調整（簡易）
         try {
-            // thumb は白、track は緑（ON） / 灰（OFF）
             val thumbStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
             val thumbColors = intArrayOf(Color.WHITE, Color.WHITE)
-            val trackColors = intArrayOf(colorSelected, Color.parseColor("#D0D0D0"))
+            val trackColors = intArrayOf(colorUploadTarget, Color.parseColor("#D0D0D0"))
             switchModel.thumbTintList = ColorStateList(thumbStates, thumbColors)
             switchModel.trackTintList = ColorStateList(thumbStates, trackColors)
-        } catch (_: Exception) {
-            // 古い環境でプロパティが使えない場合は無視
-        }
+        } catch (_: Exception) {}
 
         // スイッチの変更を反映（Steve <-> Alex）
         switchModel.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                // ON = Alex (slim)
-                skinVariant = "slim"
-                lblModel.text = "モデル: Alex"
-            } else {
-                // OFF = Steve (classic)
-                skinVariant = "classic"
-                lblModel.text = "モデル: Steve"
+            skinVariant = if (isChecked) "slim" else "classic"
+            lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
+
+            // 既に選択されたスキンがあれば preview として再レンダリング
+            currentSkinBitmap?.let { bmp ->
+                applyVariantToSkinView()
+                if (skinView.holder.surface.isValid) {
+                    try { skinView.render(bmp) } catch (e: Exception) { e.printStackTrace() }
+                } else { pendingBitmap = bmp }
             }
         }
 
@@ -135,17 +144,12 @@ class MainActivity : AppCompatActivity() {
 
         // スキン選択（ギャラリー）
         btnSelect.setOnClickListener {
-            if (isUploadState) {
-                // ラベルが「アップロード」になっている場合はアップロード処理
-                handleUpload()
-                return@setOnClickListener
-            } else {
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-                startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
-            }
+            // 常に選択画面を開く（選択後は上書きできる）
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
+            startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
         }
 
-        // btnUpload は初期は非表示のままだが、念のためハンドラは残す
+        // アップロードボタン
         btnUpload.setOnClickListener {
             handleUpload()
         }
@@ -166,11 +170,12 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
-        // Surface準備
+        // Surface 準備
         skinView.holder.addCallback(object : android.view.SurfaceHolder.Callback {
             override fun surfaceCreated(holder: android.view.SurfaceHolder) {
                 pendingBitmap?.let {
                     try {
+                        applyVariantToSkinView()
                         skinView.render(it)
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -200,20 +205,30 @@ class MainActivity : AppCompatActivity() {
                     // 現在のスキンを保持
                     currentSkinBitmap = resized
 
-                    skinImage.setImageBitmap(resized)
-
+                    // SkinView に variant を反映してレンダー
+                    applyVariantToSkinView()
                     if (skinView.holder.surface.isValid) {
-                        skinView.render(resized)
+                        try {
+                            skinView.render(resized)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     } else {
                         pendingBitmap = resized
                     }
 
-                    // 画像選択が成功したので、btnSelect をアニメーションで水色->緑にして
-                    // テキストを「アップロード」に変える（btnUpload は非表示のまま）
-                    if (!isUploadState) {
-                        animateSelectButtonToUpload()
+                    // 選択済みにして Upload ボタンを表示・アニメーション
+                    if (!hasSelectedSkin) {
+                        hasSelectedSkin = true
+                        // Upload ボタンを表示し、水色の Select ボタンはそのままにする
+                        btnUpload.visibility = View.VISIBLE
+                        animateButtonToColor(btnUpload, colorUploadInitial, colorUploadTarget)
                     } else {
-                        // no-op
+                        // すでに選択済みでも、Upload ボタンが隠れていれば表示する
+                        if (btnUpload.visibility != View.VISIBLE) {
+                            btnUpload.visibility = View.VISIBLE
+                            btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
+                        }
                     }
 
                 } catch (e: Exception) {
@@ -228,37 +243,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 選択ボタンをアニメーションで水色 -> 緑に変化させ、完了後にアップロード状態にする
-    private fun animateSelectButtonToUpload() {
-        btnSelect.isEnabled = false
-
-        val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorInitial, colorSelected)
-        colorAnimation.duration = 420L
-        colorAnimation.addUpdateListener { animator ->
-            val color = animator.animatedValue as Int
-            btnSelect.backgroundTintList = ColorStateList.valueOf(color)
-        }
-        colorAnimation.addListener(object : Animator.AnimatorListener {
-            override fun onAnimationStart(animation: Animator) {}
-            override fun onAnimationEnd(animation: Animator) {
-                isUploadState = true
-                btnSelect.text = "アップロード"
-                btnSelect.isEnabled = true
-                // 要望: btnUpload は表示しない（操作は btnSelect から行う）
-                btnUpload.visibility = View.GONE
-            }
-
-            override fun onAnimationCancel(animation: Animator) {
-                btnSelect.isEnabled = true
-            }
-
-            override fun onAnimationRepeat(animation: Animator) {}
-        })
-        colorAnimation.start()
+    // SkinView に variant を渡す（ライブラリの API に応じて複数パターンを試す）
+    private fun applyVariantToSkinView() {
+        try {
+            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
+            m.invoke(skinView, skinVariant)
+            return
+        } catch (_: NoSuchMethodException) {}
+        try {
+            val m2 = skinView.javaClass.getMethod("setSlim", java.lang.Boolean.TYPE)
+            m2.invoke(skinView, skinVariant == "slim")
+            return
+        } catch (_: NoSuchMethodException) {}
+        // ライブラリ側で別 API の場合はここに追記してください
     }
 
-    // アップロード処理（Minecraft API へ実際に PUT/POST する実装）
-    // 注意: prefs に保存されたトークンを使用します。実運用ではトークンの種類や有効性を確認してください。
+    // ボタンを色アニメーションで変化させる（ArgbEvaluator を利用）
+    private fun animateButtonToColor(button: Button, fromColor: Int, toColor: Int) {
+        button.isEnabled = false
+        val anim = ValueAnimator.ofObject(ArgbEvaluator(), fromColor, toColor)
+        anim.duration = 380L
+        anim.addUpdateListener { a ->
+            val color = a.animatedValue as Int
+            button.backgroundTintList = ColorStateList.valueOf(color)
+        }
+        anim.addListener(object : Animator.AnimatorListener {
+            override fun onAnimationStart(animation: Animator) {}
+            override fun onAnimationEnd(animation: Animator) {
+                button.isEnabled = true
+                // 確実に最終色をセット
+                button.backgroundTintList = ColorStateList.valueOf(toColor)
+            }
+            override fun onAnimationCancel(animation: Animator) { button.isEnabled = true }
+            override fun onAnimationRepeat(animation: Animator) {}
+        })
+        anim.start()
+    }
+
+    // アップロード処理（Minecraft API へ multipart POST）
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
@@ -282,7 +304,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // プログレス表示（簡易）
         val progressView = ProgressBar(this)
         val dialog = AlertDialog.Builder(this)
             .setTitle("アップロード中")
@@ -291,16 +312,13 @@ class MainActivity : AppCompatActivity() {
             .create()
         dialog.show()
 
-        // 画像を PNG に変換
         val baos = ByteArrayOutputStream()
         bitmap.compress(CompressFormat.PNG, 100, baos)
         val imageBytes = baos.toByteArray()
 
-        // ネットワークは別スレッドで
         Thread {
             var conn: HttpURLConnection? = null
             try {
-                // Minecraft API: POST https://api.minecraftservices.com/minecraft/profile/skins
                 val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
                 conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
@@ -319,20 +337,17 @@ class MainActivity : AppCompatActivity() {
                 val lineEnd = "\r\n"
                 val twoHyphens = "--"
 
-                // variant field (classic or slim) - use skinVariant selected by the switch
                 out.writeBytes(twoHyphens + boundary + lineEnd)
                 out.writeBytes("Content-Disposition: form-data; name=\"variant\"$lineEnd")
                 out.writeBytes("Content-Type: text/plain; charset=UTF-8$lineEnd$lineEnd")
                 out.writeBytes("$skinVariant$lineEnd")
 
-                // file field
                 out.writeBytes(twoHyphens + boundary + lineEnd)
                 out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$lineEnd")
                 out.writeBytes("Content-Type: image/png$lineEnd$lineEnd")
                 out.write(imageBytes)
                 out.writeBytes(lineEnd)
 
-                // end boundary
                 out.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd)
                 out.flush()
                 out.close()
