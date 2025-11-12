@@ -52,10 +52,21 @@ class MainActivity : AppCompatActivity() {
         btnLibrary = findViewById(R.id.btnLibrary)
         btnLogout = findViewById(R.id.btnLogout)
 
-        // 初期色をセット（選択ボタンを水色に）
+        // 初期 UI セットアップ
+        // 「スキンを選択」ボタンは水色、表示されている間はアップロードボタンを非表示にする
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorInitial)
         btnSelect.text = "画像を選択"
         btnSelect.isAllCaps = false
+
+        // ここで初期状態はアップロードボタンを非表示にします（要求どおり）
+        btnUpload.visibility = View.GONE
+
+        // スキンライブラリとログアウトの色を指定
+        btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FFEB3B")) // 黄色
+        btnLibrary.isAllCaps = false
+
+        btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336")) // 赤
+        btnLogout.isAllCaps = false
 
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
@@ -80,7 +91,8 @@ class MainActivity : AppCompatActivity() {
         // 🔹 スキン選択（ギャラリー）
         btnSelect.setOnClickListener {
             if (isUploadState) {
-                // アップロード状態ならアップロード処理へ
+                // 既にアップロード状態（btnSelect のラベルが「アップロード」のとき）は
+                // btnSelect を押すことでアップロード処理を実行する（btnUpload は引き続き非表示）
                 handleUpload()
                 return@setOnClickListener
             } else {
@@ -89,7 +101,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 🔹 アップロード（現在はダイアログでプレースホルダ）
+        // btnUpload は初期は非表示だが、万が一押せる状態になっている場合の保険
         btnUpload.setOnClickListener {
             handleUpload()
         }
@@ -143,19 +155,18 @@ class MainActivity : AppCompatActivity() {
 
                     skinImage.setImageBitmap(resized)
 
-                    // 明示的に if-else ブロックを使う（コンパイラの解釈を明確にするため）
                     if (skinView.holder.surface.isValid) {
                         skinView.render(resized)
                     } else {
                         pendingBitmap = resized
                     }
 
-                    // 画像選択が成功したので、ボタンをアニメーションで水色->緑にして
-                    // テキストを「アップロード」に変える
+                    // 画像選択が成功したので、btnSelect をアニメーションで水色->緑にして
+                    // テキストを「アップロード」に変える（btnUpload は引き続き非表示）
                     if (!isUploadState) {
                         animateSelectButtonToUpload()
                     } else {
-                        // no-op（明示的な else を追加して式として扱われる場合のエラーを回避）
+                        // no-op
                     }
 
                 } catch (e: Exception) {
@@ -186,7 +197,7 @@ class MainActivity : AppCompatActivity() {
                 isUploadState = true
                 btnSelect.text = "アップロード"
                 btnSelect.isEnabled = true
-                // 同じアップロード処理を呼べるように、既存のアップロードボタンは非表示にする（任意）
+                // 要望どおり：btnUpload は表示しない（操作は btnSelect で行う）
                 btnUpload.visibility = View.GONE
             }
 
