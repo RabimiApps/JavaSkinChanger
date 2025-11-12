@@ -24,22 +24,24 @@
         android:textSize="16sp"
         android:layout_marginBottom="12dp" />
 
-    <!-- モデル切替: iOS風のスイッチ（Steve / Alex） -->
+    <!-- モデル切替: ラベルとスイッチを近づけるため TextView を wrap_content にして横並び -->
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="12dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
 
         <TextView
             android:id="@+id/lblModel"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:text="モデル: Steve"
             android:textSize="16sp"
-            android:textColor="#222222" />
+            android:textColor="#222222"
+            android:layout_marginEnd="8dp" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/switchModel"
@@ -47,6 +49,12 @@
             android:layout_height="wrap_content"
             android:checked="false"
             android:showText="false" />
+
+        <!-- フレキシブルな余白を右側に入れて、ボタン群との距離を保つ -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
     </LinearLayout>
 
     <!-- 選択 と アップロード を横並びに。初期はアップロードを非表示 -->
