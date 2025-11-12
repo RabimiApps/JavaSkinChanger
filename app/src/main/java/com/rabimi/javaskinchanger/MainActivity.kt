@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
+import android.graphics.Bitmap.CompressFormat
 import android.graphics.Color
 import android.os.Bundle
 import android.provider.MediaStore
@@ -15,6 +16,10 @@ import android.animation.Animator
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,6 +33,9 @@ class MainActivity : AppCompatActivity() {
 
     private val REQUEST_SKIN_PICK = 1001
     private var pendingBitmap: Bitmap? = null
+
+    // 現在表示しているスキンのビットマップ（アップロード時に使用）
+    private var currentSkinBitmap: Bitmap? = null
 
     // 色: 初期の水色と選択後の緑
     private val colorInitial = Color.parseColor("#4FC3F7") // 水色
@@ -53,18 +61,18 @@ class MainActivity : AppCompatActivity() {
         btnLogout = findViewById(R.id.btnLogout)
 
         // 初期 UI セットアップ
-        // 「スキンを選択」ボタンは水色、表示されている間はアップロードボタンを非表示にする
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorInitial)
         btnSelect.text = "画像を選択"
         btnSelect.isAllCaps = false
 
-        // ここで初期状態はアップロードボタンを非表示にします（要求どおり）
+        // アップロードは初期時非表示（要望）
         btnUpload.visibility = View.GONE
 
-        // スキンライブラリとログアウトの色を指定
-        btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FFEB3B")) // 黄色
+        // スキンライブラリを紫に変更（要望）
+        btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0")) // 紫
         btnLibrary.isAllCaps = false
 
+        // ログアウトを赤（既に赤の場合はそのまま）
         btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336")) // 赤
         btnLogout.isAllCaps = false
 
@@ -72,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
 
-        // 🔸 ログインチェック
+        // ログインチェック
         if (username.isNullOrBlank() || token.isNullOrBlank()) {
             AlertDialog.Builder(this)
                 .setTitle("ログインが必要です")
@@ -88,11 +96,10 @@ class MainActivity : AppCompatActivity() {
 
         txtUsername.text = "ログイン中: $username"
 
-        // 🔹 スキン選択（ギャラリー）
+        // スキン選択（ギャラリー）
         btnSelect.setOnClickListener {
             if (isUploadState) {
-                // 既にアップロード状態（btnSelect のラベルが「アップロード」のとき）は
-                // btnSelect を押すことでアップロード処理を実行する（btnUpload は引き続き非表示）
+                // ラベルが「アップロード」になっている場合はアップロード処理
                 handleUpload()
                 return@setOnClickListener
             } else {
@@ -101,12 +108,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // btnUpload は初期は非表示だが、万が一押せる状態になっている場合の保険
+        // btnUpload は初期は非表示のままだが、念のためハンドラは残す
         btnUpload.setOnClickListener {
             handleUpload()
         }
 
-        // 🔹 スキンライブラリ
+        // スキンライブラリ
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("ライブラリ")
@@ -115,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // 🔹 ログアウト
+        // ログアウト
         btnLogout.setOnClickListener {
             prefs.edit().clear().apply()
             startActivity(Intent(this, WelcomeActivity::class.java))
@@ -153,6 +160,9 @@ class MainActivity : AppCompatActivity() {
                         bitmap
                     }
 
+                    // 現在のスキンを保持
+                    currentSkinBitmap = resized
+
                     skinImage.setImageBitmap(resized)
 
                     if (skinView.holder.surface.isValid) {
@@ -162,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     // 画像選択が成功したので、btnSelect をアニメーションで水色->緑にして
-                    // テキストを「アップロード」に変える（btnUpload は引き続き非表示）
+                    // テキストを「アップロード」に変える（btnUpload は非表示のまま）
                     if (!isUploadState) {
                         animateSelectButtonToUpload()
                     } else {
@@ -197,7 +207,7 @@ class MainActivity : AppCompatActivity() {
                 isUploadState = true
                 btnSelect.text = "アップロード"
                 btnSelect.isEnabled = true
-                // 要望どおり：btnUpload は表示しない（操作は btnSelect で行う）
+                // 要望: btnUpload は表示しない（操作は btnSelect から行う）
                 btnUpload.visibility = View.GONE
             }
 
@@ -210,14 +220,118 @@ class MainActivity : AppCompatActivity() {
         colorAnimation.start()
     }
 
-    // アップロード処理（現在はプレースホルダ）
+    // アップロード処理（Minecraft API へ実際に PUT/POST する実装）
+    // 注意: prefs に保存されたトークンを使用します。実運用ではトークンの種類や有効性を確認してください。
     private fun handleUpload() {
-        // ここに実際のアップロード処理を実装してください。
-        // 現在はプレースホルダのダイアログ表示のみ。
-        AlertDialog.Builder(this)
-            .setTitle("アップロード")
-            .setMessage("アップロード処理はまだ実装されていません")
-            .setPositiveButton("OK", null)
-            .show()
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val token = prefs.getString("minecraft_token", null)
+        val bitmap = currentSkinBitmap
+
+        if (bitmap == null) {
+            AlertDialog.Builder(this)
+                .setTitle("アップロードエラー")
+                .setMessage("アップロードするスキンが選択されていません。")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+
+        if (token.isNullOrBlank()) {
+            AlertDialog.Builder(this)
+                .setTitle("認証エラー")
+                .setMessage("Minecraft の認証トークンが見つかりません。再ログインしてください。")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+
+        // プログレス表示（簡易）
+        val progressView = ProgressBar(this)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("アップロード中")
+            .setView(progressView)
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        // 画像を PNG に変換
+        val baos = ByteArrayOutputStream()
+        bitmap.compress(CompressFormat.PNG, 100, baos)
+        val imageBytes = baos.toByteArray()
+
+        // ネットワークは別スレッドで
+        Thread {
+            var conn: HttpURLConnection? = null
+            try {
+                // Minecraft API: POST https://api.minecraftservices.com/minecraft/profile/skins
+                val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
+                conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    doInput = true
+                    useCaches = false
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+
+                val boundary = "----SkinUploadBoundary${System.currentTimeMillis()}"
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+
+                val out = DataOutputStream(conn.outputStream)
+                val lineEnd = "\r\n"
+                val twoHyphens = "--"
+
+                // variant field (classic or slim). Use classic by default.
+                out.writeBytes(twoHyphens + boundary + lineEnd)
+                out.writeBytes("Content-Disposition: form-data; name=\"variant\"$lineEnd")
+                out.writeBytes("Content-Type: text/plain; charset=UTF-8$lineEnd$lineEnd")
+                out.writeBytes("classic$lineEnd")
+
+                // file field
+                out.writeBytes(twoHyphens + boundary + lineEnd)
+                out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$lineEnd")
+                out.writeBytes("Content-Type: image/png$lineEnd$lineEnd")
+                out.write(imageBytes)
+                out.writeBytes(lineEnd)
+
+                // end boundary
+                out.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd)
+                out.flush()
+                out.close()
+
+                val responseCode = conn.responseCode
+                val responseMessage = conn.responseMessage
+
+                runOnUiThread {
+                    dialog.dismiss()
+                    if (responseCode in 200..299) {
+                        AlertDialog.Builder(this)
+                            .setTitle("アップロード完了")
+                            .setMessage("スキンのアップロードに成功しました。")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    } else {
+                        AlertDialog.Builder(this)
+                            .setTitle("アップロード失敗")
+                            .setMessage("HTTP $responseCode: $responseMessage")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                runOnUiThread {
+                    dialog.dismiss()
+                    AlertDialog.Builder(this)
+                        .setTitle("アップロードエラー")
+                        .setMessage("通信中にエラーが発生しました: ${e.message}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            } finally {
+                conn?.disconnect()
+            }
+        }.start()
     }
 }
