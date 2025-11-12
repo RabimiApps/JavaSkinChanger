@@ -42,6 +42,7 @@ jobs:
           echo "Version name: $VERSION_NAME"
           echo "Version code: $VERSION_CODE"
 
+      # 5. JitPack 確認
       - name: Wait for JitPack availability
         run: |
           for i in {1..5}; do
@@ -54,16 +55,23 @@ jobs:
             fi
           done
 
-      # 5. APK ビルド（versionNameとversionCodeを反映）
+      # 6. Build Release APK
       - name: Build Release APK
         run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
-      # 6. Keystore 復元
+      # 7. Android Build-tools インストール（apksigner 用）
+      - name: Install Android Build Tools
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 33
+          build-tools: 33.0.2
+
+      # 8. Keystore 復元
       - name: Restore keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
 
-      # 7. APK 署名
+      # 9. APK 署名
       - name: Sign APK
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
@@ -78,7 +86,7 @@ jobs:
             --out $APK_SIGNED \
             $APK_UNSIGN
 
-      # 8. Draft リリースにアップロード
+      # 10. Draft リリースにアップロード
       - name: Create Draft Release
         uses: ncipollo/release-action@v1
         with:
