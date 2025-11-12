@@ -8,13 +8,13 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <!-- SkinView3D を配置するコンテナ。ここに SurfaceView (SkinView3DSurfaceView) を動的に追加します -->
-    <FrameLayout
-        android:id="@+id/skinContainer"
+    <!-- SkinView を XML に直接配置。id は skinView -->
+    <dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+        android:id="@+id/skinView"
         android:layout_width="match_parent"
         android:layout_height="320dp"
         android:layout_marginBottom="12dp"
-        android:background="#F5F5F5" />
+        android:background="#EEEEEE" />
 
     <TextView
         android:id="@+id/txtUsername"
@@ -25,7 +25,7 @@
         android:textSize="16sp"
         android:layout_marginBottom="12dp" />
 
-    <!-- モデル切替: ラベルとスイッチを近づけるため TextView を wrap_content にして横並び -->
+    <!-- モデル切替 -->
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
@@ -51,14 +51,13 @@
             android:checked="false"
             android:showText="false" />
 
-        <!-- フレキシブルな余白を右側に入れて、ボタン群との距離を保つ -->
         <View
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_weight="1" />
     </LinearLayout>
 
-    <!-- 選択 と アップロード を横並びに。初期はアップロードを非表示 -->
+    <!-- 選択 と アップロード -->
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
