@@ -83,9 +83,10 @@ class MainActivity : AppCompatActivity() {
                 // アップロード状態ならアップロード処理へ
                 handleUpload()
                 return@setOnClickListener
+            } else {
+                val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
+                startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
             }
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-            startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
         }
 
         // 🔹 アップロード（現在はダイアログでプレースホルダ）
@@ -134,9 +135,11 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val bitmapOriginal: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                     val bitmap = bitmapOriginal.copy(Bitmap.Config.ARGB_8888, true)
-                    val resized = if (bitmap.width != 64 || bitmap.height != 64)
+                    val resized = if (bitmap.width != 64 || bitmap.height != 64) {
                         Bitmap.createScaledBitmap(bitmap, 64, 64, true)
-                    else bitmap
+                    } else {
+                        bitmap
+                    }
 
                     skinImage.setImageBitmap(resized)
 
@@ -149,7 +152,9 @@ class MainActivity : AppCompatActivity() {
 
                     // 画像選択が成功したので、ボタンをアニメーションで水色->緑にして
                     // テキストを「アップロード」に変える
-                    if (!isUploadState) animateSelectButtonToUpload()
+                    if (!isUploadState) {
+                        animateSelectButtonToUpload()
+                    }
 
                 } catch (e: Exception) {
                     e.printStackTrace()
