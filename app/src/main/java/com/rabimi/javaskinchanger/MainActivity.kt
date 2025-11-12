@@ -15,6 +15,7 @@ import android.animation.ValueAnimator
 import android.animation.Animator
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -30,6 +31,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnUpload: Button
     private lateinit var btnLibrary: Button
     private lateinit var btnLogout: Button
+    private lateinit var switchModel: SwitchCompat
+    private lateinit var lblModel: TextView
 
     private val REQUEST_SKIN_PICK = 1001
     private var pendingBitmap: Bitmap? = null
@@ -43,6 +46,9 @@ class MainActivity : AppCompatActivity() {
 
     // 選択→アップロード状態かどうか
     private var isUploadState = false
+
+    // モデル (classic = Steve, slim = Alex)
+    private var skinVariant: String = "classic"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +65,8 @@ class MainActivity : AppCompatActivity() {
         btnUpload = findViewById(R.id.btnUpload)
         btnLibrary = findViewById(R.id.btnLibrary)
         btnLogout = findViewById(R.id.btnLogout)
+        switchModel = findViewById(R.id.switchModel)
+        lblModel = findViewById(R.id.lblModel)
 
         // 初期 UI セットアップ
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorInitial)
@@ -69,12 +77,41 @@ class MainActivity : AppCompatActivity() {
         btnUpload.visibility = View.GONE
 
         // スキンライブラリを紫に変更（要望）
-        btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0")) // 紫
+        btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0"))
         btnLibrary.isAllCaps = false
 
-        // ログアウトを赤（既に赤の場合はそのまま）
-        btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336")) // 赤
+        // ログアウトを赤
+        btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336"))
         btnLogout.isAllCaps = false
+
+        // スイッチ初期状態: OFF = Steve (classic)
+        switchModel.isChecked = false
+        lblModel.text = "モデル: Steve"
+
+        // スイッチの色を少し iOS風に調整
+        try {
+            // thumb は白、track は緑（ON） / 灰（OFF）
+            val thumbStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+            val thumbColors = intArrayOf(Color.WHITE, Color.WHITE)
+            val trackColors = intArrayOf(colorSelected, Color.parseColor("#D0D0D0"))
+            switchModel.thumbTintList = ColorStateList(thumbStates, thumbColors)
+            switchModel.trackTintList = ColorStateList(thumbStates, trackColors)
+        } catch (_: Exception) {
+            // 古い環境でプロパティが使えない場合は無視
+        }
+
+        // スイッチの変更を反映（Steve <-> Alex）
+        switchModel.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                // ON = Alex (slim)
+                skinVariant = "slim"
+                lblModel.text = "モデル: Alex"
+            } else {
+                // OFF = Steve (classic)
+                skinVariant = "classic"
+                lblModel.text = "モデル: Steve"
+            }
+        }
 
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
@@ -282,11 +319,11 @@ class MainActivity : AppCompatActivity() {
                 val lineEnd = "\r\n"
                 val twoHyphens = "--"
 
-                // variant field (classic or slim). Use classic by default.
+                // variant field (classic or slim) - use skinVariant selected by the switch
                 out.writeBytes(twoHyphens + boundary + lineEnd)
                 out.writeBytes("Content-Disposition: form-data; name=\"variant\"$lineEnd")
                 out.writeBytes("Content-Type: text/plain; charset=UTF-8$lineEnd$lineEnd")
-                out.writeBytes("classic$lineEnd")
+                out.writeBytes("$skinVariant$lineEnd")
 
                 // file field
                 out.writeBytes(twoHyphens + boundary + lineEnd)
