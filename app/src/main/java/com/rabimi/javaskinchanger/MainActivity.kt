@@ -57,11 +57,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 先に skinContainer を取得してから参照するようにする（コンパイルエラー回避）
+        skinContainer = findViewById(R.id.skinContainer)
+
         // XML に直接置いた SkinView を取得する
         skinView = findViewById(R.id.skinView)
-
-        // skinContainer をプロパティとして取得（修正点）
-        skinContainer = findViewById(R.id.skinContainer)
 
         // デバッグ: 見やすくするため背景色を設定（本番で不要なら削除）
         try {
