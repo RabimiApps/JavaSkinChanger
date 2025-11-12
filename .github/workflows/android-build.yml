@@ -34,7 +34,6 @@ jobs:
         id: version
         run: |
           BUILD=${{ github.run_number }}
-          # 日本時間に設定
           DATE=$(TZ=Asia/Tokyo date +'%Y.%m%d.%H%M%S')
           VERSION_NAME="${BUILD}.${DATE}"
           VERSION_CODE=$BUILD
@@ -55,18 +54,31 @@ jobs:
             fi
           done
 
-
       # 5. APK ビルド（versionNameとversionCodeを反映）
-      - name: Build Debug APK
-        run: gradle clean assembleDebug --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+      - name: Build Release APK
+        run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
-      # 6. APK をバージョン名入りでリネーム
-      - name: Rename APK
+      # 6. Keystore 復元
+      - name: Restore keystore
         run: |
-          mkdir -p output
-          cp app/build/outputs/apk/debug/app-debug.apk output/JSCBuild-${{ env.VERSION_NAME }}.apk
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
 
-      # 7. Draft リリースにアップロード
+      # 7. APK 署名
+      - name: Sign APK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          APK_UNSIGN=app/build/outputs/apk/release/app-release-unsigned.apk
+          APK_SIGNED=output/JSCBuild-${{ env.VERSION_NAME }}.apk
+          mkdir -p output
+          yes | $ANDROID_HOME/build-tools/33.0.2/apksigner sign \
+            --ks my-release-key.jks \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_ALIAS_PASSWORD }} \
+            --out $APK_SIGNED \
+            $APK_UNSIGN
+
+      # 8. Draft リリースにアップロード
       - name: Create Draft Release
         uses: ncipollo/release-action@v1
         with:
