@@ -62,12 +62,16 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="スキンライブラリ"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="12dp"
+        android:backgroundTint="#9C27B0"
+        android:textAllCaps="false" />
 
     <Button
         android:id="@+id/btnLogout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="ログアウト" />
+        android:text="ログアウト"
+        android:backgroundTint="#F44336"
+        android:textAllCaps="false" />
 
 </LinearLayout>
