@@ -154,6 +154,8 @@ class MainActivity : AppCompatActivity() {
                     // テキストを「アップロード」に変える
                     if (!isUploadState) {
                         animateSelectButtonToUpload()
+                    } else {
+                        // no-op（明示的な else を追加して式として扱われる場合のエラーを回避）
                     }
 
                 } catch (e: Exception) {
