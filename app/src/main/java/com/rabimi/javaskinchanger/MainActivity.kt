@@ -56,32 +56,25 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // SkinView3D を動的に生成して配置（LayoutParams を明示）
-        val skinContainer = findViewById<FrameLayout>(R.id.skinContainer)
-        skinView = SkinView3DSurfaceView(this)
+        // XML に直接置いた SkinView を取得する（動的追加はやめる）
+        skinView = findViewById(R.id.skinView)
 
         // デバッグ: 見やすくするため背景色を設定（本番で不要なら削除）
         try {
             skinView.setBackgroundColor(Color.parseColor("#EEEEEE"))
         } catch (_: Exception) {}
 
-        val lp = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
-        skinContainer.addView(skinView, lp)
-
-        // デバッグ: Z-order を設定して他ビューに隠れないようにしてみる（必要に応じて切り替えてください）
+        // bring to front + request layout/invalidate で他 View に隠れないよう試す
         try {
-            // setZOrderOnTop(true) がうまくいかない場合は false に戻してください
-            skinView.setZOrderOnTop(true)
-            skinView.setZOrderMediaOverlay(false)
-            Log.d(TAG, "Called setZOrderOnTop(true)")
+            skinView.bringToFront()
+            skinView.requestLayout()
+            skinView.invalidate()
+            Log.d(TAG, "Called bringToFront/requestLayout/invalidate on skinView")
         } catch (e: Exception) {
-            Log.w(TAG, "Z-order adjust failed: ${e.message}")
+            Log.w(TAG, "bringToFront/requestLayout failed: ${e.message}")
         }
 
-        // Views 初期化
+        // Views
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -90,7 +83,7 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // UI 初期化（省略：既存のまま）
+        // 初期 UI セットアップ
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.text = "画像を選択"
         btnSelect.isAllCaps = false
@@ -105,11 +98,15 @@ class MainActivity : AppCompatActivity() {
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
-        // デバッグ: layout サイズを onCreate 後に確認する（view.post で確実に取得）
+        // デバッグ: skinView / skinContainer のサイズを確実に知るため post
+        val skinContainer = findViewById<FrameLayout>(R.id.skinContainer)
         skinContainer.post {
             val w = skinContainer.width
             val h = skinContainer.height
             Log.d(TAG, "skinContainer size: ${w}x${h}")
+            val svw = skinView.width
+            val svh = skinView.height
+            Log.d(TAG, "skinView size: ${svw}x${svh}, visible=${skinView.visibility}")
         }
 
         // デバッグ: skinView のメソッド一覧を列挙（variant API を探す手がかり）
@@ -133,24 +130,26 @@ class MainActivity : AppCompatActivity() {
             }
 
             // 既に画像があるなら再描画
-            currentSkinBitmap?.let { bmp ->
+            if (currentSkinBitmap != null) {
                 Log.d(TAG, "Re-rendering with variant=$skinVariant")
                 applyVariantToSkinView()
-                if (skinView.holder.surface.isValid) {
-                    try {
-                        skinView.render(bmp)
-                        Log.d(TAG, "render called immediately after switch")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "render failed after switch: ${e.message}")
+                val bmp = currentSkinBitmap
+                if (bmp != null) {
+                    if (skinView.holder.surface.isValid) {
+                        try {
+                            skinView.render(bmp)
+                            Log.d(TAG, "render called immediately after switch")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "render failed after switch: ${e.message}")
+                        }
+                    } else {
+                        pendingBitmap = bmp
+                        Log.d(TAG, "surface not valid, stored to pendingBitmap")
                     }
-                } else {
-                    pendingBitmap = bmp
-                    Log.d(TAG, "surface not valid, stored to pendingBitmap")
                 }
             }
         }
 
-        // ボタン等のハンドラ（省略はせず通常通り）
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
