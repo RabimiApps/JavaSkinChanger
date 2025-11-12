@@ -8,6 +8,7 @@ import android.graphics.Bitmap.CompressFormat
 import android.graphics.Color
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.view.View
 import android.widget.*
 import android.animation.ArgbEvaluator
@@ -24,6 +25,10 @@ import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        private const val TAG = "SkinDebug"
+    }
+
     private lateinit var skinView: SkinView3DSurfaceView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
@@ -39,15 +44,12 @@ class MainActivity : AppCompatActivity() {
     // 現在表示しているスキンのビットマップ（アップロード時に使用）
     private var currentSkinBitmap: Bitmap? = null
 
-    // 色: 初期の水色(選択ボタン) と アップロードの緑
-    private val colorSelect = Color.parseColor("#4FC3F7") // 水色
-    private val colorUploadTarget = Color.parseColor("#4CAF50") // 緑
-    private val colorUploadInitial = Color.parseColor("#BDBDBD") // アップロード初期色（灰）
+    // 色
+    private val colorSelect = Color.parseColor("#4FC3F7")
+    private val colorUploadTarget = Color.parseColor("#4CAF50")
+    private val colorUploadInitial = Color.parseColor("#BDBDBD")
 
-    // 選択フラグ
     private var hasSelectedSkin = false
-
-    // モデル (classic = Steve, slim = Alex)
     private var skinVariant: String = "classic"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,21 +59,29 @@ class MainActivity : AppCompatActivity() {
         // SkinView3D を動的に生成して配置（LayoutParams を明示）
         val skinContainer = findViewById<FrameLayout>(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
+
+        // デバッグ: 見やすくするため背景色を設定（本番で不要なら削除）
+        try {
+            skinView.setBackgroundColor(Color.parseColor("#EEEEEE"))
+        } catch (_: Exception) {}
+
         val lp = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
         skinContainer.addView(skinView, lp)
 
-        // Z-order を試しに設定（他の View に隠れる場合に調整）
+        // デバッグ: Z-order を設定して他ビューに隠れないようにしてみる（必要に応じて切り替えてください）
         try {
-            skinView.setZOrderOnTop(false)
-            skinView.setZOrderMediaOverlay(true)
-        } catch (_: Exception) {
-            // 無視
+            // setZOrderOnTop(true) がうまくいかない場合は false に戻してください
+            skinView.setZOrderOnTop(true)
+            skinView.setZOrderMediaOverlay(false)
+            Log.d(TAG, "Called setZOrderOnTop(true)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Z-order adjust failed: ${e.message}")
         }
 
-        // Views
+        // Views 初期化
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -80,40 +90,40 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // 初期 UI セットアップ
+        // UI 初期化（省略：既存のまま）
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.text = "画像を選択"
         btnSelect.isAllCaps = false
-
-        // アップロードは初期時は見えない（後で表示）
         btnUpload.visibility = View.GONE
         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadInitial)
         btnUpload.isAllCaps = false
         btnUpload.text = "アップロード"
-
-        // スキンライブラリを紫、ログアウトを赤
         btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0"))
         btnLibrary.isAllCaps = false
         btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336"))
         btnLogout.isAllCaps = false
-
-        // スイッチ初期状態: OFF = Steve (classic)
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
-        // スイッチ色調整（簡易）
-        try {
-            val thumbStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-            val thumbColors = intArrayOf(Color.WHITE, Color.WHITE)
-            val trackColors = intArrayOf(colorUploadTarget, Color.parseColor("#D0D0D0"))
-            switchModel.thumbTintList = ColorStateList(thumbStates, thumbColors)
-            switchModel.trackTintList = ColorStateList(thumbStates, trackColors)
-        } catch (_: Exception) {
-            // ignore
+        // デバッグ: layout サイズを onCreate 後に確認する（view.post で確実に取得）
+        skinContainer.post {
+            val w = skinContainer.width
+            val h = skinContainer.height
+            Log.d(TAG, "skinContainer size: ${w}x${h}")
         }
 
-        // スイッチの変更を反映（Steve <-> Alex）
+        // デバッグ: skinView のメソッド一覧を列挙（variant API を探す手がかり）
+        try {
+            val methods = skinView.javaClass.methods
+            val names = methods.map { it.name }.distinct().sorted().joinToString(", ")
+            Log.d(TAG, "SkinView methods: $names")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to list SkinView methods: ${e.message}")
+        }
+
+        // スイッチ処理（既存ロジックにログを追加）
         switchModel.setOnCheckedChangeListener { _, isChecked ->
+            Log.d(TAG, "switchModel changed: isChecked=$isChecked")
             if (isChecked) {
                 skinVariant = "slim"
                 lblModel.text = "モデル: Alex"
@@ -122,29 +132,29 @@ class MainActivity : AppCompatActivity() {
                 lblModel.text = "モデル: Steve"
             }
 
-            // 既に選択されたスキンがあれば preview として再レンダリング
-            if (currentSkinBitmap != null) {
+            // 既に画像があるなら再描画
+            currentSkinBitmap?.let { bmp ->
+                Log.d(TAG, "Re-rendering with variant=$skinVariant")
                 applyVariantToSkinView()
-                val bmp = currentSkinBitmap
-                if (bmp != null) {
-                    if (skinView.holder.surface.isValid) {
-                        try {
-                            skinView.render(bmp)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    } else {
-                        pendingBitmap = bmp
+                if (skinView.holder.surface.isValid) {
+                    try {
+                        skinView.render(bmp)
+                        Log.d(TAG, "render called immediately after switch")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "render failed after switch: ${e.message}")
                     }
+                } else {
+                    pendingBitmap = bmp
+                    Log.d(TAG, "surface not valid, stored to pendingBitmap")
                 }
             }
         }
 
+        // ボタン等のハンドラ（省略はせず通常通り）
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
 
-        // ログインチェック
         if (username.isNullOrBlank() || token.isNullOrBlank()) {
             AlertDialog.Builder(this)
                 .setTitle("ログインが必要です")
@@ -160,19 +170,13 @@ class MainActivity : AppCompatActivity() {
 
         txtUsername.text = "ログイン中: $username"
 
-        // スキン選択（ギャラリー）
         btnSelect.setOnClickListener {
-            // 常に選択画面を開く（選択後は上書きできる）
             val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
             startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
         }
 
-        // アップロードボタン
-        btnUpload.setOnClickListener {
-            handleUpload()
-        }
+        btnUpload.setOnClickListener { handleUpload() }
 
-        // スキンライブラリ
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("ライブラリ")
@@ -181,32 +185,38 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // ログアウト
         btnLogout.setOnClickListener {
             prefs.edit().clear().apply()
             startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
         }
 
-        // Surface 準備
+        // Surface のコールバックにログを追加
         skinView.holder.addCallback(object : android.view.SurfaceHolder.Callback {
             override fun surfaceCreated(holder: android.view.SurfaceHolder) {
+                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
                 if (pendingBitmap != null) {
                     val pb = pendingBitmap
                     if (pb != null) {
                         try {
                             applyVariantToSkinView()
                             skinView.render(pb)
+                            Log.d(TAG, "rendered pending bitmap in surfaceCreated")
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.e(TAG, "render failed in surfaceCreated: ${e.message}")
                         }
                         pendingBitmap = null
                     }
                 }
             }
 
-            override fun surfaceChanged(holder: android.view.SurfaceHolder, format: Int, width: Int, height: Int) {}
-            override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {}
+            override fun surfaceChanged(holder: android.view.SurfaceHolder, format: Int, width: Int, height: Int) {
+                Log.d(TAG, "surfaceChanged: format=$format size=${width}x${height} isValid=${holder.surface.isValid}")
+            }
+
+            override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
+                Log.d(TAG, "surfaceDestroyed")
+            }
         })
     }
 
@@ -225,25 +235,25 @@ class MainActivity : AppCompatActivity() {
                         resized = bitmap
                     }
 
-                    // 現在のスキンを保持
                     currentSkinBitmap = resized
 
-                    // SkinView に variant を反映してレンダー
+                    Log.d(TAG, "selected skin size: ${resized.width}x${resized.height}")
+
                     applyVariantToSkinView()
                     if (skinView.holder.surface.isValid) {
                         try {
                             skinView.render(resized)
+                            Log.d(TAG, "render called in onActivityResult")
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.e(TAG, "render failed in onActivityResult: ${e.message}")
                         }
                     } else {
                         pendingBitmap = resized
+                        Log.d(TAG, "surface not valid, stored to pendingBitmap")
                     }
 
-                    // 選択済みにして Upload ボタンを表示・アニメーション
                     if (!hasSelectedSkin) {
                         hasSelectedSkin = true
-                        // Upload ボタンを表示し、灰→緑にアニメーション
                         btnUpload.visibility = View.VISIBLE
                         animateButtonToColor(btnUpload, colorUploadInitial, colorUploadTarget)
                     } else {
@@ -254,6 +264,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load selected image: ${e.message}")
                     e.printStackTrace()
                     AlertDialog.Builder(this)
                         .setTitle("エラー")
@@ -262,7 +273,6 @@ class MainActivity : AppCompatActivity() {
                         .show()
                 }
             } else {
-                // data または data.data が null の場合のフォールバック
                 AlertDialog.Builder(this)
                     .setTitle("エラー")
                     .setMessage("画像が選択されませんでした。")
@@ -272,30 +282,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // SkinView に variant を渡す（ライブラリの API に応じて複数パターンを試す）
     private fun applyVariantToSkinView() {
         try {
             val m = skinView.javaClass.getMethod("setVariant", String::class.java)
             m.invoke(skinView, skinVariant)
+            Log.d(TAG, "Invoked setVariant($skinVariant)")
             return
         } catch (_: NoSuchMethodException) {
             // continue
-        } catch (_: Exception) {
-            // ignore other reflection errors
+        } catch (e: Exception) {
+            Log.w(TAG, "setVariant invoke error: ${e.message}")
         }
         try {
             val m2 = skinView.javaClass.getMethod("setSlim", java.lang.Boolean.TYPE)
             m2.invoke(skinView, skinVariant == "slim")
+            Log.d(TAG, "Invoked setSlim(${skinVariant == "slim"})")
             return
         } catch (_: NoSuchMethodException) {
             // no-op
-        } catch (_: Exception) {
-            // ignore
+        } catch (e: Exception) {
+            Log.w(TAG, "setSlim invoke error: ${e.message}")
         }
-        // ライブラリ側で別 API の場合はここに追記してください
+        // ここに別の API 名があれば追記
     }
 
-    // ボタンを色アニメーションで変化させる（ArgbEvaluator を利用）
     private fun animateButtonToColor(button: Button, fromColor: Int, toColor: Int) {
         button.isEnabled = false
         val anim = ValueAnimator.ofObject(ArgbEvaluator(), fromColor, toColor)
@@ -318,7 +328,6 @@ class MainActivity : AppCompatActivity() {
         anim.start()
     }
 
-    // アップロード処理（Minecraft API へ multipart POST）
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
