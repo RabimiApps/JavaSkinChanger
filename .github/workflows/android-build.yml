@@ -69,11 +69,12 @@ jobs:
       - name: Build Release APK
         run: gradle clean assembleRelease --refresh-dependencies --build-cache -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
-      # 7. Android SDK + Build-tools インストール
-      - name: Install Android SDK Build Tools
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "build-tools;33.0.2" "platforms;android-33"
+      - name: Set up Android SDK Build Tools
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 33
+          build-tools: 33.0.2
+          license-accept: true
 
       # 8. Keystore 復元
       - name: Restore keystore
