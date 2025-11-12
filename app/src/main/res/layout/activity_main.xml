@@ -8,20 +8,13 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <!-- skinContainer: FrameLayout（MainActivity が参照） -->
+    <!-- skinContainer の中にプログラムで SkinView を追加する -->
     <FrameLayout
         android:id="@+id/skinContainer"
         android:layout_width="match_parent"
         android:layout_height="320dp"
         android:layout_marginBottom="12dp"
-        android:background="#F5F5F5">
-
-        <!-- SkinView を XML に直接配置し、id=skinView にする -->
-        <dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
-            android:id="@+id/skinView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-    </FrameLayout>
+        android:background="#F5F5F5" />
 
     <TextView
         android:id="@+id/txtUsername"
