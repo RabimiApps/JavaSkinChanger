@@ -9,12 +9,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # ★ GITHUB_TOKENにリリース作成権限を付与
+      contents: write   # GITHUB_TOKENにリリース作成権限を付与
 
     steps:
-      # 1. リポジトリチェックアウト
+      # 1. リポジトリチェックアウト + Gradle キャッシュ
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-
 
       # 2. JDK 17 セットアップ
       - name: Set up JDK 17
@@ -55,16 +65,15 @@ jobs:
             fi
           done
 
-      # 6. Build Release APK
+      # 6. Build Release APK (キャッシュ有効)
       - name: Build Release APK
-        run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+        run: gradle clean assembleRelease --refresh-dependencies --build-cache -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
-      # 7. Android Build-tools インストール（apksigner 用）
-      - name: Install Android Build Tools
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 33
-          build-tools: 33.0.2
+      # 7. Android SDK + Build-tools インストール
+      - name: Install Android SDK Build Tools
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;33.0.2" "platforms;android-33"
 
       # 8. Keystore 復元
       - name: Restore keystore
@@ -73,9 +82,8 @@ jobs:
 
       # 9. APK 署名
       - name: Sign APK
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
+          ANDROID_HOME=$HOME/Android/Sdk
           APK_UNSIGN=app/build/outputs/apk/release/app-release-unsigned.apk
           APK_SIGNED=output/JSCBuild-${{ env.VERSION_NAME }}.apk
           mkdir -p output
