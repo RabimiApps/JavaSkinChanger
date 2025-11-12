@@ -57,26 +57,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 先に skinContainer を取得してから参照するようにする（コンパイルエラー回避）
+        // skinContainer を先に取得
         skinContainer = findViewById(R.id.skinContainer)
 
-        // XML に直接置いた SkinView を取得する
-        skinView = findViewById(R.id.skinView)
+        // SkinView を動的に生成して追加（XML で直接置かない）
+        skinView = SkinView3DSurfaceView(this)
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        // 必要ならマージンや重なり調整もここで設定可能
+        skinContainer.addView(skinView, lp)
 
-        // デバッグ: 見やすくするため背景色を設定（本番で不要なら削除）
+        // デバッグ: 背景を付けて見えるか確認しやすくする（不要なら削除）
         try {
             skinView.setBackgroundColor(Color.parseColor("#EEEEEE"))
         } catch (_: Exception) {}
-
-        // bring to front + request layout/invalidate で他 View に隠れないよう試す
-        try {
-            skinView.bringToFront()
-            skinView.requestLayout()
-            skinView.invalidate()
-            Log.d(TAG, "Called bringToFront/requestLayout/invalidate on skinView")
-        } catch (e: Exception) {
-            Log.w(TAG, "bringToFront/requestLayout failed: ${e.message}")
-        }
 
         // Views
         txtUsername = findViewById(R.id.txtUsername)
@@ -87,7 +83,7 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // 初期 UI セットアップ
+        // UI 初期化
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.text = "画像を選択"
         btnSelect.isAllCaps = false
@@ -102,17 +98,13 @@ class MainActivity : AppCompatActivity() {
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
-        // デバッグ: skinView / skinContainer のサイズを確実に知るため post
+        // skinContainer / skinView サイズ確認ログ
         skinContainer.post {
-            val w = skinContainer.width
-            val h = skinContainer.height
-            Log.d(TAG, "skinContainer size: ${w}x${h}")
-            val svw = skinView.width
-            val svh = skinView.height
-            Log.d(TAG, "skinView size: ${svw}x${svh}, visible=${skinView.visibility}")
+            Log.d(TAG, "skinContainer size: ${skinContainer.width}x${skinContainer.height}")
+            Log.d(TAG, "skinView size: ${skinView.width}x${skinView.height}, visible=${skinView.visibility}")
         }
 
-        // デバッグ: skinView のメソッド一覧を列挙（variant API を探す手がかり）
+        // skinView メソッド一覧（variant API 探し用）
         try {
             val methods = skinView.javaClass.methods
             val names = methods.map { it.name }.distinct().sorted().joinToString(", ")
@@ -121,7 +113,7 @@ class MainActivity : AppCompatActivity() {
             Log.w(TAG, "Failed to list SkinView methods: ${e.message}")
         }
 
-        // スイッチ処理（既存ロジックにログを追加）
+        // スイッチ処理
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             Log.d(TAG, "switchModel changed: isChecked=$isChecked")
             if (isChecked) {
@@ -132,22 +124,18 @@ class MainActivity : AppCompatActivity() {
                 lblModel.text = "モデル: Steve"
             }
 
-            // 既に画像があるなら再描画
-            if (currentSkinBitmap != null) {
+            currentSkinBitmap?.let { bmp ->
                 applyVariantToSkinView()
-                val bmp = currentSkinBitmap
-                if (bmp != null) {
-                    if (skinView.holder.surface.isValid) {
-                        try {
-                            skinView.render(bmp)
-                            Log.d(TAG, "render called immediately after switch")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "render failed after switch: ${e.message}")
-                        }
-                    } else {
-                        pendingBitmap = bmp
-                        Log.d(TAG, "surface not valid, stored to pendingBitmap")
+                if (skinView.holder.surface.isValid) {
+                    try {
+                        skinView.render(bmp)
+                        Log.d(TAG, "render called immediately after switch")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "render failed after switch: ${e.message}")
                     }
+                } else {
+                    pendingBitmap = bmp
+                    Log.d(TAG, "surface not valid, stored to pendingBitmap")
                 }
             }
         }
@@ -237,7 +225,6 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     currentSkinBitmap = resized
-
                     Log.d(TAG, "selected skin size: ${resized.width}x${resized.height}")
 
                     applyVariantToSkinView()
