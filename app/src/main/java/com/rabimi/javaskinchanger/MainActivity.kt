@@ -9,7 +9,6 @@ import android.graphics.Bitmap.Config
 import android.graphics.Bitmap.createBitmap
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Base64
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.View
@@ -83,6 +82,15 @@ class MainActivity : AppCompatActivity() {
                 surfaceReady = true
                 Log.d(TAG, "surfaceCreated: ready=${holder.surface.isValid}")
 
+                // GLThreadが未生成なら resume を呼んで生成を確実にする
+                try {
+                    Log.d(TAG, "surfaceCreated: calling skinView.onResume() to start GLThread")
+                    skinView.onResume()
+                } catch (e: Exception) {
+                    Log.w(TAG, "surfaceCreated: skinView.onResume() failed: ${e.message}")
+                }
+
+                // pending があれば描画、それ以外はアカウントスキンかテストを読み込む
                 pendingBitmap?.let {
                     Log.d(TAG, "surfaceCreated: rendering pending skin")
                     safeRender(it)
@@ -97,7 +105,12 @@ class MainActivity : AppCompatActivity() {
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 surfaceReady = false
-                Log.d(TAG, "surfaceDestroyed called")
+                Log.d(TAG, "surfaceDestroyed called - pausing GL")
+                try {
+                    skinView.onPause()
+                } catch (e: Exception) {
+                    Log.w(TAG, "surfaceDestroyed: skinView.onPause() failed: ${e.message}")
+                }
             }
         })
 
@@ -124,7 +137,8 @@ class MainActivity : AppCompatActivity() {
         lblModel.text = "モデル: Steve"
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
-            skinVariant = if (isChecked) "slim" else "classic"
+            val newVariant = if (isChecked) "slim" else "classic"
+            skinVariant = newVariant
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
 
             if (surfaceReady && currentSkinBitmap != null) {
@@ -187,8 +201,8 @@ class MainActivity : AppCompatActivity() {
                     if (code == 200) {
                         val body = conn.inputStream.bufferedReader().readText()
                         val profileJson = JSONObject(body)
-                        val skinsArray = profileJson.getJSONArray("skins")
-                        if (skinsArray.length() > 0) {
+                        val skinsArray = profileJson.optJSONArray("skins")
+                        if (skinsArray != null && skinsArray.length() > 0) {
                             val skinUrl = skinsArray.getJSONObject(0).getString("url")
                             val skinBitmap = BitmapFactory.decodeStream(URL(skinUrl).openStream())
                             currentSkinBitmap = Bitmap.createScaledBitmap(skinBitmap, 64, 64, true)
@@ -197,6 +211,7 @@ class MainActivity : AppCompatActivity() {
                             withContext(Dispatchers.Main) {
                                 safeRender(currentSkinBitmap!!)
                             }
+                            conn.disconnect()
                             return@launch
                         }
                     }
@@ -222,11 +237,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        try { skinView.onResume() } catch (_: Exception) {}
+        // 注意: surface が未準備だと skinView.onResume() は呼ばない（surfaceCreated で呼ぶ）
+        Log.d(TAG, "onResume called (not forcing skinView.onResume here)")
+        // 描画リトライだけ行う
         pendingBitmap?.let { safeRender(it) }
     }
 
     override fun onPause() {
+        // onPause は surfaceDestroyed で pause するためここでは安全に呼ばないが
+        // 念のため try/catch で呼ぶ（surface 未準備なら例外を握り潰す）
         try { skinView.onPause() } catch (_: Exception) {}
         super.onPause()
     }
@@ -235,6 +254,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "safeRender called. surfaceReady=$surfaceReady, bitmap=${bitmap.width}x${bitmap.height}")
         if (!surfaceReady) {
             Log.d(TAG, "safeRender: surface not ready, delaying...")
+            // 150ms ごとにリトライ（surfaceCreated で最終描画もするので過剰にはならない）
             skinView.postDelayed({ safeRender(bitmap) }, 150)
             return
         }
