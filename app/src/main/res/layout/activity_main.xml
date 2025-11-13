@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:gravity="center"
     android:background="#FAFAFA"
@@ -15,6 +16,7 @@
         android:layout_marginBottom="12dp"
         android:background="#F5F5F5" />
 
+    <!-- ユーザー名 -->
     <TextView
         android:id="@+id/txtUsername"
         android:layout_width="wrap_content"
@@ -43,12 +45,15 @@
             android:textColor="#222222"
             android:layout_marginEnd="8dp" />
 
-        <androidx.appcompat.widget.SwitchCompat
+        <!-- iOS風 Material Switch -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/switchModel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:checked="false"
-            android:showText="false" />
+            app:showText="false"
+            app:trackColor="@color/switch_track"
+            app:thumbColor="@color/switch_thumb" />
 
         <View
             android:layout_width="0dp"
