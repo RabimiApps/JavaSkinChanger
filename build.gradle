@@ -7,33 +7,10 @@ buildscript {
         google()
         mavenCentral()
         maven { url "https://jitpack.io" }
-        gradlePluginPortal() // Build Scan プラグインを取得するため
     }
     dependencies {
         classpath "com.android.tools.build:gradle:8.2.1"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.gradle:build-scan-plugin:3.19.2" // 最新版 Build Scan
-    }
-}
-
-// Build Scan プラグインを適用
-apply plugin: "com.gradle.build-scan"
-
-buildScan {
-    termsOfServiceUrl = 'https://gradle.com/terms-of-service'
-    termsOfServiceAgree = 'yes'
-    publishAlways()
-}
-
-task clean(type: Delete) {
-    delete rootProject.buildDir
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url "https://jitpack.io" }
     }
 }
 
