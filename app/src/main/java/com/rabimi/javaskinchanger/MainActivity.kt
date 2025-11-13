@@ -52,7 +52,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
-        // XMLから取得
         val container: FrameLayout = findViewById(R.id.skinContainer)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
@@ -62,7 +61,6 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // SkinView を動的生成して FrameLayout に追加
         skinView = SkinView3DSurfaceView(this)
         container.addView(
             skinView,
@@ -71,8 +69,9 @@ class MainActivity : AppCompatActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
+        skinView.bringToFront() // 💡 最前面へ
 
-        // SurfaceCallback 設定
+        // Surface callback
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
@@ -87,7 +86,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // UI 初期化
+        // --- UI setup ---
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.isAllCaps = false
         btnSelect.text = "画像を選択"
@@ -147,8 +146,10 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
-        // テスト用にグレーのスキンを初期表示
-        val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply { eraseColor(0xFF888888.toInt()) }
+        // 🧱 テストスキン（グレー）
+        val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
+            eraseColor(0xFF888888.toInt())
+        }
         currentSkinBitmap = testBitmap
         pendingBitmap = testBitmap
         safeRender(testBitmap)
@@ -166,19 +167,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun safeRender(bitmap: Bitmap) {
+        if (!surfaceReady) {
+            Log.d(TAG, "safeRender: surface not ready, delaying...")
+            skinView.postDelayed({ safeRender(bitmap) }, 150)
+            return
+        }
+
         skinView.post {
-            if (surfaceReady) {
-                try {
-                    applyVariantToSkinView()
-                    skinView.render(bitmap)
-                    Log.d(TAG, "safeRender: rendered successfully")
-                    pendingBitmap = null
-                } catch (e: Exception) {
-                    Log.e(TAG, "safeRender failed: ${e.message}")
-                }
-            } else {
-                Log.d(TAG, "safeRender: surface not ready, retrying in 100ms...")
-                skinView.postDelayed({ safeRender(bitmap) }, 100)
+            try {
+                applyVariantToSkinView()
+                skinView.render(bitmap)
+                Log.d(TAG, "safeRender: rendered successfully")
+                pendingBitmap = null
+            } catch (e: Exception) {
+                Log.e(TAG, "safeRender failed: ${e.message}")
             }
         }
     }
