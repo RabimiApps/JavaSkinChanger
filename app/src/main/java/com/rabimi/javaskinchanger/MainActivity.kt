@@ -82,9 +82,8 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "surfaceCreated: rendering pending skin")
                     safeRender(it)
                 } ?: run {
-                    // 赤テストスキンで初期描画
                     val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
-                        eraseColor(0xFFFF0000.toInt()) // 赤
+                        eraseColor(0xFFFF0000.toInt())
                     }
                     currentSkinBitmap = testBitmap
                     pendingBitmap = testBitmap
@@ -183,8 +182,13 @@ class MainActivity : AppCompatActivity() {
     private fun safeRender(bitmap: Bitmap) {
         Log.d(TAG, "safeRender called. surfaceReady=$surfaceReady, bitmap=${bitmap.width}x${bitmap.height}")
         if (!surfaceReady) {
-            Log.d(TAG, "safeRender: surface not ready, delaying...")
-            skinView.postDelayed({ safeRender(bitmap) }, 150)
+            // まだ surface が準備できていない場合
+            if (pendingBitmap != bitmap) { // 既に予約されていなければ
+                pendingBitmap = bitmap
+                skinView.postDelayed({
+                    if (pendingBitmap == bitmap) safeRender(bitmap)
+                }, 150)
+            }
             return
         }
 
@@ -194,7 +198,7 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "safeRender: calling skinView.render()")
                 skinView.render(bitmap)
                 Log.d(TAG, "safeRender: rendered successfully")
-                pendingBitmap = null
+                if (pendingBitmap == bitmap) pendingBitmap = null
             } catch (e: Exception) {
                 Log.e(TAG, "safeRender failed: ${e.message}")
             }
