@@ -6,42 +6,34 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        maven { url "https://jitpack.io" } // Glide などを確実に取得
+        maven { url "https://jitpack.io" }
+        gradlePluginPortal() // Build Scan プラグインを取得するため
     }
     dependencies {
         classpath "com.android.tools.build:gradle:8.2.1"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        buildscript {
-    ext {
-        kotlin_version = "1.9.0"
-        gradle_version = "8.2.1"
-    }
-    repositories {
-        google()
-        mavenCentral()
-        maven { url "https://jitpack.io" } // Glide などを確実に取得
-    }
-    dependencies {
-        classpath "com.android.tools.build:gradle:8.2.1"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.gradle:build-scan-plugin:3.19.2" // 最新版 Build Scan
     }
 }
 
-// Build Scan プラグイン（Groovy DSL + plugins {} はルートに書くと全体に有効）
-plugins {
-    id 'com.gradle.build-scan' version '3.19.2'
-}
+// Build Scan プラグインを適用
+apply plugin: "com.gradle.build-scan"
 
 buildScan {
     termsOfServiceUrl = 'https://gradle.com/terms-of-service'
     termsOfServiceAgree = 'yes'
-    publishAlways() // 任意：毎回ビルドスキャンを公開
+    publishAlways()
 }
 
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://jitpack.io" }
     }
 }
 
