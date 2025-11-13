@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
-        // XML要素取得
+        // --- XML要素取得 ---
         val container: FrameLayout = findViewById(R.id.skinContainer)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // SkinView 初期化
+        // --- SkinView 初期化 ---
         skinView = SkinView3DSurfaceView(this)
         container.addView(
             skinView,
@@ -73,12 +73,23 @@ class MainActivity : AppCompatActivity() {
         )
         skinView.bringToFront()
 
-        // Surface 監視
+        // Surface状態を監視
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 surfaceReady = true
                 Log.d(TAG, "surfaceCreated: ready=${holder.surface.isValid}")
-                pendingBitmap?.let { safeRender(it) }
+                // Surface生成後に初期描画
+                pendingBitmap?.let {
+                    Log.d(TAG, "surfaceCreated: rendering pending skin")
+                    safeRender(it)
+                } ?: run {
+                    val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
+                        eraseColor(0xFF888888.toInt()) // グレー
+                    }
+                    currentSkinBitmap = testBitmap
+                    pendingBitmap = testBitmap
+                    safeRender(testBitmap)
+                }
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -91,7 +102,12 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // --- UI 設定 ---
+        // --- UI設定 ---
+        setupUI()
+        checkLogin()
+    }
+
+    private fun setupUI() {
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.isAllCaps = false
         btnSelect.text = "画像を選択"
@@ -118,7 +134,23 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // ログイン確認
+        btnSelect.setOnClickListener { selectSkinImage() }
+        btnUpload.setOnClickListener { handleUpload() }
+        btnLibrary.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("ライブラリ")
+                .setMessage("スキンライブラリ機能はまだ実装されていません")
+                .setPositiveButton("OK", null)
+                .show()
+        }
+        btnLogout.setOnClickListener {
+            getSharedPreferences("prefs", MODE_PRIVATE).edit().clear().apply()
+            startActivity(Intent(this, WelcomeActivity::class.java))
+            finish()
+        }
+    }
+
+    private fun checkLogin() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
@@ -132,32 +164,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 .setCancelable(false)
                 .show()
-            return
+        } else {
+            txtUsername.text = "ログイン中: $username"
         }
-        txtUsername.text = "ログイン中: $username"
-
-        btnSelect.setOnClickListener { selectSkinImage() }
-        btnUpload.setOnClickListener { handleUpload() }
-        btnLibrary.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("ライブラリ")
-                .setMessage("スキンライブラリ機能はまだ実装されていません")
-                .setPositiveButton("OK", null)
-                .show()
-        }
-        btnLogout.setOnClickListener {
-            prefs.edit().clear().apply()
-            startActivity(Intent(this, WelcomeActivity::class.java))
-            finish()
-        }
-
-        // 🔹テストスキン（グレー表示）
-        val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
-            eraseColor(0xFF888888.toInt())
-        }
-        currentSkinBitmap = testBitmap
-        pendingBitmap = testBitmap
-        safeRender(testBitmap)
     }
 
     override fun onResume() {
@@ -173,8 +182,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun safeRender(bitmap: Bitmap) {
         if (!surfaceReady) {
-            Log.d(TAG, "safeRender: surface not ready, delaying...")
-            skinView.postDelayed({ safeRender(bitmap) }, 200)
+            Log.d(TAG, "safeRender: surface not ready, waiting...")
+            skinView.postDelayed({ safeRender(bitmap) }, 150)
             return
         }
 
