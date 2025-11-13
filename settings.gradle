@@ -1,29 +1,8 @@
 pluginManagement {
     repositories {
-        gradlePluginPortal()
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
-    }
-}
-
-buildscript {
-    repositories {
-        gradlePluginPortal()
-    }
-    dependencies {
-        classpath "gradle.enterprise:gradle-enterprise-gradle-plugin:3.15.4"
-    }
-}
-
-// Gradle Enterprise プラグインを適用
-apply plugin: "com.gradle.enterprise"
-
-gradleEnterprise {
-    buildScan {
-        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
-        termsOfServiceAgree = 'yes'
-        publishAlways()
     }
 }
 
