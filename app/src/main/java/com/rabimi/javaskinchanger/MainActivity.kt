@@ -53,13 +53,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // SkinView初期化
         skinContainer = findViewById(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
-        val lp = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
         skinContainer.addView(skinView, lp)
 
-        // Surface準備時にスキン描画
+        // Surface のコールバック
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
@@ -68,7 +71,6 @@ class MainActivity : AppCompatActivity() {
                     applyVariantToSkinView()
                     skinView.render(bmpToRender)
                     pendingBitmap = null
-                    Log.d(TAG, "rendered bitmap in surfaceCreated")
                 } catch (e: Exception) {
                     Log.e(TAG, "render failed: ${e.message}")
                 }
@@ -78,7 +80,7 @@ class MainActivity : AppCompatActivity() {
             override fun surfaceDestroyed(holder: SurfaceHolder) {}
         })
 
-        // UI初期化
+        // UI 初期化
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -98,7 +100,6 @@ class MainActivity : AppCompatActivity() {
 
         btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0"))
         btnLibrary.isAllCaps = false
-
         btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336"))
         btnLogout.isAllCaps = false
 
@@ -109,15 +110,14 @@ class MainActivity : AppCompatActivity() {
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             skinVariant = if (isChecked) "slim" else "classic"
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-
             currentSkinBitmap?.let { bmp ->
                 pendingBitmap = bmp
                 if (skinView.holder.surface.isValid) {
                     try {
                         applyVariantToSkinView()
                         skinView.render(bmp)
-                        pendingBitmap = null
                     } catch (_: Exception) {}
+                    pendingBitmap = null
                 }
             }
         }
@@ -140,12 +140,8 @@ class MainActivity : AppCompatActivity() {
         }
         txtUsername.text = "ログイン中: $username"
 
-        // 画像選択
-        btnSelect.setOnClickListener {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-            startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
-        }
-
+        // ボタンクリック設定
+        btnSelect.setOnClickListener { selectSkinImage() }
         btnUpload.setOnClickListener { handleUpload() }
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this)
@@ -154,7 +150,6 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("OK", null)
                 .show()
         }
-
         btnLogout.setOnClickListener {
             prefs.edit().clear().apply()
             startActivity(Intent(this, WelcomeActivity::class.java))
@@ -172,13 +167,21 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
+    private fun selectSkinImage() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
+        startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
             data?.data?.let { uri ->
                 try {
                     val bmpOriginal = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                    val bmp = Bitmap.createScaledBitmap(bmpOriginal.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
+                    val bmp = Bitmap.createScaledBitmap(
+                        bmpOriginal.copy(Bitmap.Config.ARGB_8888, true),
+                        64, 64, true
+                    )
                     currentSkinBitmap = bmp
                     pendingBitmap = bmp
                     if (skinView.holder.surface.isValid) {
@@ -186,11 +189,14 @@ class MainActivity : AppCompatActivity() {
                         skinView.render(bmp)
                         pendingBitmap = null
                     }
+
+                    // ここを文として書く
                     if (!hasSelectedSkin) {
                         hasSelectedSkin = true
                         btnUpload.visibility = View.VISIBLE
                         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
                     }
+
                 } catch (e: Exception) {
                     AlertDialog.Builder(this)
                         .setTitle("エラー")
@@ -217,7 +223,8 @@ class MainActivity : AppCompatActivity() {
         for (y in 0 until 8) {
             for (x in 0 until 8) {
                 paint.color = if ((x + y) % 2 == 0) Color.LTGRAY else Color.DKGRAY
-                canvas.drawRect((x*cell).toFloat(), (y*cell).toFloat(), ((x+1)*cell).toFloat(), ((y+1)*cell).toFloat(), paint)
+                canvas.drawRect((x*cell).toFloat(), (y*cell).toFloat(),
+                    ((x+1)*cell).toFloat(), ((y+1)*cell).toFloat(), paint)
             }
         }
         paint.color = Color.MAGENTA
