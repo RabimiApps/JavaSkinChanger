@@ -54,6 +54,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        Log.d(TAG, "onCreate called") // 確認用ログ
+
         skinContainer = findViewById(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
         skinContainer.addView(
@@ -74,9 +76,10 @@ class MainActivity : AppCompatActivity() {
         // Surface のコールバック
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
+                Log.d(TAG, "surfaceCreated called: isValid=${holder.surface.isValid}")
                 surfaceReady = true
 
+                // 再描画安定化
                 skinView.post {
                     skinView.visibility = View.VISIBLE
                     skinView.bringToFront()
@@ -90,6 +93,7 @@ class MainActivity : AppCompatActivity() {
                         applyVariantToSkinView()
                         skinView.render(bmp)
                         pendingBitmap = null
+                        Log.d(TAG, "rendered pending bitmap")
                     } catch (e: Exception) {
                         Log.e(TAG, "render failed: ${e.message}")
                     }
@@ -186,6 +190,7 @@ class MainActivity : AppCompatActivity() {
                 applyVariantToSkinView()
                 skinView.render(bmp)
                 pendingBitmap = null
+                Log.d(TAG, "rendered pending bitmap from renderPendingBitmap()")
             } catch (_: Exception) {}
         }
     }
@@ -231,25 +236,6 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
     }
 
-    private fun createTestBitmap(w: Int, h: Int): Bitmap {
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        val paint = Paint()
-        val cell = w / 8
-        for (y in 0 until 8) {
-            for (x in 0 until 8) {
-                paint.color = if ((x + y) % 2 == 0) Color.LTGRAY else Color.DKGRAY
-                canvas.drawRect(
-                    (x * cell).toFloat(), (y * cell).toFloat(),
-                    ((x + 1) * cell).toFloat(), ((y + 1) * cell).toFloat(), paint
-                )
-            }
-        }
-        paint.color = Color.MAGENTA
-        canvas.drawCircle((w * 0.75).toFloat(), (h * 0.25).toFloat(), (w * 0.08).toFloat(), paint)
-        return bmp
-    }
-
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
@@ -292,12 +278,47 @@ class MainActivity : AppCompatActivity() {
                 out.flush()
                 out.close()
                 val code = conn.responseCode
-                runOnUiThread { dialog.dismiss() }
-            } catch (_: Exception) {
-                runOnUiThread { dialog.dismiss() }
+
+                // 完了時にダイアログ表示
+                runOnUiThread {
+                    dialog.dismiss()
+                    AlertDialog.Builder(this)
+                        .setTitle("アップロード完了")
+                        .setMessage("スキンがアップロードされました (HTTP $code)")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    dialog.dismiss()
+                    AlertDialog.Builder(this)
+                        .setTitle("アップロード失敗")
+                        .setMessage("エラー: ${e.message}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
             } finally {
                 conn?.disconnect()
             }
         }.start()
+    }
+
+    private fun createTestBitmap(w: Int, h: Int): Bitmap {
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint()
+        val cell = w / 8
+        for (y in 0 until 8) {
+            for (x in 0 until 8) {
+                paint.color = if ((x + y) % 2 == 0) Color.LTGRAY else Color.DKGRAY
+                canvas.drawRect(
+                    (x * cell).toFloat(), (y * cell).toFloat(),
+                    ((x + 1) * cell).toFloat(), ((y + 1) * cell).toFloat(), paint
+                )
+            }
+        }
+        paint.color = Color.MAGENTA
+        canvas.drawCircle((w * 0.75).toFloat(), (h * 0.25).toFloat(), (w * 0.08).toFloat(), paint)
+        return bmp
     }
 }
