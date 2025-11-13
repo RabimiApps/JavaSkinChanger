@@ -89,7 +89,7 @@ jobs:
       - name: Sign APK
         run: |
           APK_UNSIGN=app/build/outputs/apk/release/app-release-unsigned.apk
-          APK_SIGNED=output/JSCBuild-${{ env.VERSION_NAME }}.apk
+          APK_SIGNED=output/JavaSkinChanger-lastet.apk
           mkdir -p output
           yes | $ANDROID_HOME/build-tools/33.0.2/apksigner sign \
             --ks my-release-key.jks \
@@ -103,6 +103,6 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ env.VERSION_NAME }}
-          name: JSCBuild-${{ env.VERSION_NAME }}
-          artifacts: output/JSCBuild-${{ env.VERSION_NAME }}.apk
+          name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
+          artifacts: output/JavaSkinChanger-lastet.apk
           draft: true
