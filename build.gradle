@@ -7,23 +7,12 @@ buildscript {
         google()
         mavenCentral()
         maven { url "https://jitpack.io" } // Glide などを確実に取得
-        gradlePluginPortal() // Build Scan 用に追加
     }
     dependencies {
         classpath "com.android.tools.build:gradle:8.2.1"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.gradle:build-scan-plugin:3.12.5" // Build Scan プラグイン追加
+        
     }
-}
-
-// Build Scan プラグインを適用
-apply plugin: 'com.gradle.build-scan'
-
-// Build Scan 設定
-buildScan {
-    termsOfServiceUrl = 'https://gradle.com/terms-of-service'
-    termsOfServiceAgree = 'yes'
-    publishAlways() // 任意: 毎回スキャンを公開
 }
 
 task clean(type: Delete) {
