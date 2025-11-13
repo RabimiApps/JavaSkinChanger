@@ -4,7 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
-import android.graphics.Bitmap.CompressFormat
+import android.graphics.Bitmap.Config
+import android.graphics.Bitmap.createBitmap
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -13,7 +14,7 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
+import com.google.android.material.switchmaterial.SwitchMaterial
 import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -32,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnUpload: Button
     private lateinit var btnLibrary: Button
     private lateinit var btnLogout: Button
-    private lateinit var switchModel: SwitchCompat
+    private lateinit var switchModel: SwitchMaterial
     private lateinit var lblModel: TextView
 
     private val REQUEST_SKIN_PICK = 1001
@@ -145,6 +146,12 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
         }
+
+        // テスト用にグレーのスキンを初期表示
+        val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply { eraseColor(0xFF888888.toInt()) }
+        currentSkinBitmap = testBitmap
+        pendingBitmap = testBitmap
+        safeRender(testBitmap)
     }
 
     override fun onResume() {
@@ -224,7 +231,7 @@ class MainActivity : AppCompatActivity() {
         if (token.isNullOrBlank()) return
 
         val baos = ByteArrayOutputStream()
-        bitmap.compress(CompressFormat.PNG, 100, baos)
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
         val imageBytes = baos.toByteArray()
 
         val progress = ProgressBar(this)
