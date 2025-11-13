@@ -55,15 +55,11 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
+        // XML から取得
         skinContainer = findViewById(R.id.skinContainer)
-        skinView = SkinView3DSurfaceView(this)
-        skinContainer.addView(
-            skinView,
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
+        skinView = findViewById(R.id.skinView)
 
-        // 描画安定化
+        // 描画安定化（必要なら残す）
         skinView.post {
             skinView.visibility = View.VISIBLE
             skinView.bringToFront()
@@ -72,14 +68,12 @@ class MainActivity : AppCompatActivity() {
             skinView.setZ(10f)
         }
 
-        // Surface のコールバック
+        // SurfaceCallback 設定
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
                 surfaceReady = true
-                pendingBitmap?.let { bmp ->
-                    safeRender(bmp)
-                }
+                pendingBitmap?.let { bmp -> safeRender(bmp) }
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
@@ -124,6 +118,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // ログインチェック
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
@@ -160,7 +155,6 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try { skinView.onResume() } catch (_: Exception) {}
-        // pendingBitmap があれば再描画
         pendingBitmap?.let { safeRender(it) }
     }
 
@@ -169,7 +163,6 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    // Surface が未準備でも安全に描画する
     private fun safeRender(bitmap: Bitmap) {
         try {
             applyVariantToSkinView()
@@ -179,7 +172,6 @@ class MainActivity : AppCompatActivity() {
                 pendingBitmap = null
             } else {
                 Log.d(TAG, "safeRender: surface not ready, retrying in 100ms...")
-                // 100ms 後に再試行
                 skinView.postDelayed({ safeRender(bitmap) }, 100)
             }
         } catch (e: Exception) {
@@ -226,25 +218,6 @@ class MainActivity : AppCompatActivity() {
             val m = skinView.javaClass.getMethod("setVariant", String::class.java)
             m.invoke(skinView, skinVariant)
         } catch (_: Exception) {}
-    }
-
-    private fun createTestBitmap(w: Int, h: Int): Bitmap {
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        val paint = Paint()
-        val cell = w / 8
-        for (y in 0 until 8) {
-            for (x in 0 until 8) {
-                paint.color = if ((x + y) % 2 == 0) Color.LTGRAY else Color.DKGRAY
-                canvas.drawRect(
-                    (x * cell).toFloat(), (y * cell).toFloat(),
-                    ((x + 1) * cell).toFloat(), ((y + 1) * cell).toFloat(), paint
-                )
-            }
-        }
-        paint.color = Color.MAGENTA
-        canvas.drawCircle((w * 0.75).toFloat(), (h * 0.25).toFloat(), (w * 0.08).toFloat(), paint)
-        return bmp
     }
 
     private fun handleUpload() {
