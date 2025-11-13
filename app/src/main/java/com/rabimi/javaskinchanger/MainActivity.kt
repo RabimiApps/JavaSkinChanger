@@ -5,9 +5,6 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Bitmap.CompressFormat
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -45,9 +42,9 @@ class MainActivity : AppCompatActivity() {
     private var skinVariant: String = "classic"
     private var surfaceReady = false
 
-    private val colorSelect = Color.parseColor("#4FC3F7")
-    private val colorUploadTarget = Color.parseColor("#4CAF50")
-    private val colorUploadInitial = Color.parseColor("#BDBDBD")
+    private val colorSelect = 0xFF4FC3F7.toInt()
+    private val colorUploadTarget = 0xFF4CAF50.toInt()
+    private val colorUploadInitial = 0xFFBDBDBD.toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +52,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // XMLから取得
-        val skinContainer: FrameLayout = findViewById(R.id.skinContainer)
+        val container: FrameLayout = findViewById(R.id.skinContainer)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -64,12 +61,14 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // SkinView をプログラムで生成して追加
+        // SkinView を動的生成して FrameLayout に追加
         skinView = SkinView3DSurfaceView(this)
-        skinContainer.addView(
+        container.addView(
             skinView,
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
         )
 
         // SurfaceCallback 設定
@@ -97,9 +96,9 @@ class MainActivity : AppCompatActivity() {
         btnUpload.isAllCaps = false
         btnUpload.text = "アップロード"
 
-        btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0"))
+        btnLibrary.backgroundTintList = ColorStateList.valueOf(0xFF9C27B0.toInt())
         btnLibrary.isAllCaps = false
-        btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336"))
+        btnLogout.backgroundTintList = ColorStateList.valueOf(0xFFF44336.toInt())
         btnLogout.isAllCaps = false
 
         switchModel.isChecked = false
