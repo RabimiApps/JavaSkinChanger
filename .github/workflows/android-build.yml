@@ -70,7 +70,7 @@ jobs:
       - name: Sign APK
         run: |
           APK_UNSIGN=app/build/outputs/apk/release/app-release-unsigned.apk
-          APK_SIGNED=output/JavaSkinChanger-lastet.apk
+          APK_SIGNED=output/JavaSkinChanger-latest.apk
           mkdir -p output
           yes | $ANDROID_HOME/build-tools/33.0.2/apksigner sign \
             --ks my-release-key.jks \
@@ -85,5 +85,5 @@ jobs:
         with:
           tag: v${{ env.VERSION_NAME }}
           name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
-          artifacts: output/JavaSkinChanger-lastet.apk
+          artifacts: output/JavaSkinChanger-latest.apk
           draft: true
