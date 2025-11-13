@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var skinView: SkinView3DSurfaceView
-    private lateinit var skinContainer: FrameLayout
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -55,35 +54,8 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
-        // XML から取得
-        skinContainer = findViewById(R.id.skinContainer)
+        // XMLから取得
         skinView = findViewById(R.id.skinView)
-
-        // 描画安定化（必要なら残す）
-        skinView.post {
-            skinView.visibility = View.VISIBLE
-            skinView.bringToFront()
-            skinView.requestLayout()
-            skinView.invalidate()
-            skinView.setZ(10f)
-        }
-
-        // SurfaceCallback 設定
-        skinView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
-                surfaceReady = true
-                pendingBitmap?.let { bmp -> safeRender(bmp) }
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                surfaceReady = false
-                Log.d(TAG, "surfaceDestroyed called")
-            }
-        })
-
-        // UI 初期化
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -92,6 +64,7 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
+        // UI 初期化
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.isAllCaps = false
         btnSelect.text = "画像を選択"
@@ -118,7 +91,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // ログインチェック
+        // SurfaceCallback 設定
+        skinView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
+                surfaceReady = true
+                pendingBitmap?.let { safeRender(it) }
+            }
+
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                surfaceReady = false
+                Log.d(TAG, "surfaceDestroyed called")
+            }
+        })
+
+        // ログイン確認
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
@@ -164,18 +152,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun safeRender(bitmap: Bitmap) {
-        try {
-            applyVariantToSkinView()
+        skinView.post {
             if (surfaceReady) {
-                skinView.render(bitmap)
-                Log.d(TAG, "safeRender: rendered successfully")
-                pendingBitmap = null
+                try {
+                    applyVariantToSkinView()
+                    skinView.render(bitmap)
+                    Log.d(TAG, "safeRender: rendered successfully")
+                    pendingBitmap = null
+                } catch (e: Exception) {
+                    Log.e(TAG, "safeRender failed: ${e.message}")
+                }
             } else {
                 Log.d(TAG, "safeRender: surface not ready, retrying in 100ms...")
                 skinView.postDelayed({ safeRender(bitmap) }, 100)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "safeRender failed: ${e.message}")
         }
     }
 
