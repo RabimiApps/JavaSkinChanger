@@ -61,13 +61,30 @@ class MainActivity : AppCompatActivity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
-        skinView.visibility = View.VISIBLE  // ← ここを追加
+
+        // 描画安定化
+        skinView.post {
+            skinView.visibility = View.VISIBLE
+            skinView.bringToFront()
+            skinView.requestLayout()
+            skinView.invalidate()
+            skinView.setZ(10f)
+        }
 
         // Surface のコールバック
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
                 surfaceReady = true
+
+                skinView.post {
+                    skinView.visibility = View.VISIBLE
+                    skinView.bringToFront()
+                    skinView.requestLayout()
+                    skinView.invalidate()
+                    skinView.setZ(10f)
+                }
+
                 pendingBitmap?.let { bmp ->
                     try {
                         applyVariantToSkinView()
