@@ -83,7 +83,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-            override fun surfaceDestroyed(holder: SurfaceHolder) { 
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
                 surfaceReady = false
                 Log.d(TAG, "surfaceDestroyed called")
             }
@@ -160,7 +160,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try { skinView.onResume() } catch (_: Exception) {}
-        // 強制レンダリング
+        // pendingBitmap があれば再描画
         pendingBitmap?.let { safeRender(it) }
     }
 
@@ -169,6 +169,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
+    // Surface が未準備でも安全に描画する
     private fun safeRender(bitmap: Bitmap) {
         try {
             applyVariantToSkinView()
@@ -177,8 +178,9 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "safeRender: rendered successfully")
                 pendingBitmap = null
             } else {
-                Log.d(TAG, "safeRender: surface not ready, retrying...")
-                skinView.postDelayed({ safeRender(bitmap) }, 50)
+                Log.d(TAG, "safeRender: surface not ready, retrying in 100ms...")
+                // 100ms 後に再試行
+                skinView.postDelayed({ safeRender(bitmap) }, 100)
             }
         } catch (e: Exception) {
             Log.e(TAG, "safeRender failed: ${e.message}")
