@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
+        // XML要素取得
         val container: FrameLayout = findViewById(R.id.skinContainer)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
@@ -61,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
+        // SkinView 初期化
         skinView = SkinView3DSurfaceView(this)
         container.addView(
             skinView,
@@ -69,24 +71,27 @@ class MainActivity : AppCompatActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
-        skinView.bringToFront() // 💡 最前面へ
+        skinView.bringToFront()
 
-        // Surface callback
+        // Surface 監視
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
                 surfaceReady = true
+                Log.d(TAG, "surfaceCreated: ready=${holder.surface.isValid}")
                 pendingBitmap?.let { safeRender(it) }
             }
 
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                Log.d(TAG, "surfaceChanged: ${width}x$height")
+            }
+
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 surfaceReady = false
                 Log.d(TAG, "surfaceDestroyed called")
             }
         })
 
-        // --- UI setup ---
+        // --- UI 設定 ---
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.isAllCaps = false
         btnSelect.text = "画像を選択"
@@ -146,7 +151,7 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
-        // 🧱 テストスキン（グレー）
+        // 🔹テストスキン（グレー表示）
         val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
             eraseColor(0xFF888888.toInt())
         }
@@ -169,7 +174,7 @@ class MainActivity : AppCompatActivity() {
     private fun safeRender(bitmap: Bitmap) {
         if (!surfaceReady) {
             Log.d(TAG, "safeRender: surface not ready, delaying...")
-            skinView.postDelayed({ safeRender(bitmap) }, 150)
+            skinView.postDelayed({ safeRender(bitmap) }, 200)
             return
         }
 
@@ -223,7 +228,9 @@ class MainActivity : AppCompatActivity() {
         try {
             val m = skinView.javaClass.getMethod("setVariant", String::class.java)
             m.invoke(skinView, skinVariant)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "applyVariantToSkinView failed: ${e.message}")
+        }
     }
 
     private fun handleUpload() {
@@ -254,9 +261,11 @@ class MainActivity : AppCompatActivity() {
                 conn.setRequestProperty("Authorization", "Bearer $token")
                 val boundary = "----SkinUploadBoundary${System.currentTimeMillis()}"
                 conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+
                 val out = DataOutputStream(conn.outputStream)
                 val lineEnd = "\r\n"
                 val twoHyphens = "--"
+
                 out.writeBytes(twoHyphens + boundary + lineEnd)
                 out.writeBytes("Content-Disposition: form-data; name=\"variant\"$lineEnd$lineEnd")
                 out.writeBytes("$skinVariant$lineEnd")
@@ -267,13 +276,13 @@ class MainActivity : AppCompatActivity() {
                 out.writeBytes(lineEnd + twoHyphens + boundary + twoHyphens + lineEnd)
                 out.flush()
                 out.close()
+
                 val code = conn.responseCode
                 Log.d(TAG, "Upload finished with code: $code")
-                runOnUiThread { dialog.dismiss() }
             } catch (e: Exception) {
                 Log.e(TAG, "Upload failed: ${e.message}")
-                runOnUiThread { dialog.dismiss() }
             } finally {
+                runOnUiThread { dialog.dismiss() }
                 conn?.disconnect()
             }
         }.start()
