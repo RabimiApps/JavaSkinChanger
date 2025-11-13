@@ -62,7 +62,6 @@ class MainActivity : AppCompatActivity() {
         )
         skinContainer.addView(skinView, lp)
 
-        // Surface のコールバック
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
@@ -106,7 +105,6 @@ class MainActivity : AppCompatActivity() {
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
-        // モデル切替
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             skinVariant = if (isChecked) "slim" else "classic"
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
@@ -122,7 +120,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Minecraft 認証チェック
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
@@ -140,7 +137,6 @@ class MainActivity : AppCompatActivity() {
         }
         txtUsername.text = "ログイン中: $username"
 
-        // ボタンクリック設定
         btnSelect.setOnClickListener { selectSkinImage() }
         btnUpload.setOnClickListener { handleUpload() }
         btnLibrary.setOnClickListener {
@@ -174,42 +170,42 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+
         if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
-                try {
-                    val bmpOriginal = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                    val bmp = Bitmap.createScaledBitmap(
-                        bmpOriginal.copy(Bitmap.Config.ARGB_8888, true),
-                        64, 64, true
-                    )
-                    currentSkinBitmap = bmp
-                    pendingBitmap = bmp
+            val uri = data?.data ?: return
+            try {
+                val bmpOriginal = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                val bmp = Bitmap.createScaledBitmap(
+                    bmpOriginal.copy(Bitmap.Config.ARGB_8888, true),
+                    64, 64, true
+                )
+                currentSkinBitmap = bmp
+                pendingBitmap = bmp
 
-                    // 文脈上の式として評価されないように run で囲む
-                    run {
-                        if (skinView.holder.surface.isValid) {
-                            try {
-                                applyVariantToSkinView()
-                                skinView.render(bmp)
-                            } catch (_: Exception) {}
-                            pendingBitmap = null
-                        }
+                run {
+                    if (skinView.holder.surface.isValid) {
+                        try {
+                            applyVariantToSkinView()
+                            skinView.render(bmp)
+                        } catch (_: Exception) {}
+                        pendingBitmap = null
                     }
+                }
 
-                    // hasSelectedSkin を文として扱う
+                run {
                     if (!hasSelectedSkin) {
                         hasSelectedSkin = true
                         btnUpload.visibility = View.VISIBLE
                         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
                     }
-
-                } catch (e: Exception) {
-                    AlertDialog.Builder(this)
-                        .setTitle("エラー")
-                        .setMessage("スキンの読み込みに失敗しました: ${e.message}")
-                        .setPositiveButton("OK", null)
-                        .show()
                 }
+
+            } catch (e: Exception) {
+                AlertDialog.Builder(this)
+                    .setTitle("エラー")
+                    .setMessage("スキンの読み込みに失敗しました: ${e.message}")
+                    .setPositiveButton("OK", null)
+                    .show()
             }
         }
     }
