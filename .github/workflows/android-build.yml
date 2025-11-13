@@ -48,7 +48,7 @@ jobs:
   
       # 6. Build Release APK (キャッシュ有効)
       - name: Build Release APK
-        run: gradle clean assembleRelease --scan -Dscan.termsOfServiceAgree=yes --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+        run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
       - name: Set up Android SDK Build Tools
         uses: android-actions/setup-android@v2
