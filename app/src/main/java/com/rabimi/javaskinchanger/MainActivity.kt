@@ -56,7 +56,12 @@ class MainActivity : AppCompatActivity() {
 
         skinContainer = findViewById(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
-        skinContainer.addView(skinView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        skinContainer.addView(
+            skinView,
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        skinView.visibility = View.VISIBLE  // ← ここを追加
 
         // Surface のコールバック
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
