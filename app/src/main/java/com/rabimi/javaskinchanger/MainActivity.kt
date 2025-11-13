@@ -184,13 +184,19 @@ class MainActivity : AppCompatActivity() {
                     )
                     currentSkinBitmap = bmp
                     pendingBitmap = bmp
-                    if (skinView.holder.surface.isValid) {
-                        applyVariantToSkinView()
-                        skinView.render(bmp)
-                        pendingBitmap = null
+
+                    // 文脈上の式として評価されないように run で囲む
+                    run {
+                        if (skinView.holder.surface.isValid) {
+                            try {
+                                applyVariantToSkinView()
+                                skinView.render(bmp)
+                            } catch (_: Exception) {}
+                            pendingBitmap = null
+                        }
                     }
 
-                    // ここを文として書く
+                    // hasSelectedSkin を文として扱う
                     if (!hasSelectedSkin) {
                         hasSelectedSkin = true
                         btnUpload.visibility = View.VISIBLE
