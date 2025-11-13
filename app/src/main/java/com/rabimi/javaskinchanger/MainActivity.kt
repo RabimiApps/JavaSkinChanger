@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // XMLから取得
-        skinView = findViewById(R.id.skinView)
+        val skinContainer: FrameLayout = findViewById(R.id.skinContainer)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -63,6 +63,29 @@ class MainActivity : AppCompatActivity() {
         btnLogout = findViewById(R.id.btnLogout)
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
+
+        // SkinView をプログラムで生成して追加
+        skinView = SkinView3DSurfaceView(this)
+        skinContainer.addView(
+            skinView,
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+
+        // SurfaceCallback 設定
+        skinView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
+                surfaceReady = true
+                pendingBitmap?.let { safeRender(it) }
+            }
+
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                surfaceReady = false
+                Log.d(TAG, "surfaceDestroyed called")
+            }
+        })
 
         // UI 初期化
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
@@ -90,21 +113,6 @@ class MainActivity : AppCompatActivity() {
                 safeRender(bmp)
             }
         }
-
-        // SurfaceCallback 設定
-        skinView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
-                surfaceReady = true
-                pendingBitmap?.let { safeRender(it) }
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                surfaceReady = false
-                Log.d(TAG, "surfaceDestroyed called")
-            }
-        })
 
         // ログイン確認
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
