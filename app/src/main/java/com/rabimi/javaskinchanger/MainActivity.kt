@@ -53,16 +53,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // SkinView初期化
         skinContainer = findViewById(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
-
-        val lp = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
+        val lp = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         skinContainer.addView(skinView, lp)
 
-        // Surface ができたら必ず描画
+        // Surface準備時にスキン描画
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
@@ -77,16 +74,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                Log.d(TAG, "surfaceChanged: format=$format size=${width}x${height}")
-            }
-
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceDestroyed")
-            }
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceDestroyed(holder: SurfaceHolder) {}
         })
 
-        // UI 初期化
+        // UI初期化
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -98,14 +90,18 @@ class MainActivity : AppCompatActivity() {
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.isAllCaps = false
         btnSelect.text = "画像を選択"
+
         btnUpload.visibility = View.GONE
         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadInitial)
         btnUpload.isAllCaps = false
         btnUpload.text = "アップロード"
+
         btnLibrary.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#9C27B0"))
         btnLibrary.isAllCaps = false
+
         btnLogout.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F44336"))
         btnLogout.isAllCaps = false
+
         switchModel.isChecked = false
         lblModel.text = "モデル: Steve"
 
@@ -113,14 +109,15 @@ class MainActivity : AppCompatActivity() {
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             skinVariant = if (isChecked) "slim" else "classic"
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
+
             currentSkinBitmap?.let { bmp ->
                 pendingBitmap = bmp
                 if (skinView.holder.surface.isValid) {
                     try {
                         applyVariantToSkinView()
                         skinView.render(bmp)
+                        pendingBitmap = null
                     } catch (_: Exception) {}
-                    pendingBitmap = null
                 }
             }
         }
@@ -157,6 +154,7 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("OK", null)
                 .show()
         }
+
         btnLogout.setOnClickListener {
             prefs.edit().clear().apply()
             startActivity(Intent(this, WelcomeActivity::class.java))
