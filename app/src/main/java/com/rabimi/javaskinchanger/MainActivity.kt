@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private var currentSkinBitmap: Bitmap? = null
     private var hasSelectedSkin = false
     private var skinVariant: String = "classic"
+    private var surfaceReady = false
 
     private val colorSelect = Color.parseColor("#4FC3F7")
     private val colorUploadTarget = Color.parseColor("#4CAF50")
@@ -55,28 +56,26 @@ class MainActivity : AppCompatActivity() {
 
         skinContainer = findViewById(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
+        skinContainer.addView(skinView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
 
-        val lp = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
-        skinContainer.addView(skinView, lp)
-
+        // Surface のコールバック
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated: isValid=${holder.surface.isValid}")
-                val bmpToRender = pendingBitmap ?: createTestBitmap(64, 64)
-                try {
-                    applyVariantToSkinView()
-                    skinView.render(bmpToRender)
-                    pendingBitmap = null
-                } catch (e: Exception) {
-                    Log.e(TAG, "render failed: ${e.message}")
+                surfaceReady = true
+                pendingBitmap?.let { bmp ->
+                    try {
+                        applyVariantToSkinView()
+                        skinView.render(bmp)
+                        pendingBitmap = null
+                    } catch (e: Exception) {
+                        Log.e(TAG, "render failed: ${e.message}")
+                    }
                 }
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-            override fun surfaceDestroyed(holder: SurfaceHolder) {}
+            override fun surfaceDestroyed(holder: SurfaceHolder) { surfaceReady = false }
         })
 
         // UI 初期化
@@ -110,13 +109,7 @@ class MainActivity : AppCompatActivity() {
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
             currentSkinBitmap?.let { bmp ->
                 pendingBitmap = bmp
-                if (skinView.holder.surface.isValid) {
-                    try {
-                        applyVariantToSkinView()
-                        skinView.render(bmp)
-                    } catch (_: Exception) {}
-                    pendingBitmap = null
-                }
+                renderPendingBitmap()
             }
         }
 
@@ -156,11 +149,23 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try { skinView.onResume() } catch (_: Exception) {}
+        renderPendingBitmap()
     }
 
     override fun onPause() {
         try { skinView.onPause() } catch (_: Exception) {}
         super.onPause()
+    }
+
+    private fun renderPendingBitmap() {
+        if (!surfaceReady) return
+        pendingBitmap?.let { bmp ->
+            try {
+                applyVariantToSkinView()
+                skinView.render(bmp)
+                pendingBitmap = null
+            } catch (_: Exception) {}
+        }
     }
 
     private fun selectSkinImage() {
@@ -170,7 +175,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
             val uri = data?.data ?: return
             try {
@@ -181,25 +185,13 @@ class MainActivity : AppCompatActivity() {
                 )
                 currentSkinBitmap = bmp
                 pendingBitmap = bmp
+                renderPendingBitmap()
 
-                run {
-                    if (skinView.holder.surface.isValid) {
-                        try {
-                            applyVariantToSkinView()
-                            skinView.render(bmp)
-                        } catch (_: Exception) {}
-                        pendingBitmap = null
-                    }
+                if (!hasSelectedSkin) {
+                    hasSelectedSkin = true
+                    btnUpload.visibility = View.VISIBLE
+                    btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
                 }
-
-                run {
-                    if (!hasSelectedSkin) {
-                        hasSelectedSkin = true
-                        btnUpload.visibility = View.VISIBLE
-                        btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
-                    }
-                }
-
             } catch (e: Exception) {
                 AlertDialog.Builder(this)
                     .setTitle("エラー")
@@ -225,20 +217,23 @@ class MainActivity : AppCompatActivity() {
         for (y in 0 until 8) {
             for (x in 0 until 8) {
                 paint.color = if ((x + y) % 2 == 0) Color.LTGRAY else Color.DKGRAY
-                canvas.drawRect((x*cell).toFloat(), (y*cell).toFloat(),
-                    ((x+1)*cell).toFloat(), ((y+1)*cell).toFloat(), paint)
+                canvas.drawRect(
+                    (x * cell).toFloat(), (y * cell).toFloat(),
+                    ((x + 1) * cell).toFloat(), ((y + 1) * cell).toFloat(), paint
+                )
             }
         }
         paint.color = Color.MAGENTA
-        canvas.drawCircle((w*0.75).toFloat(), (h*0.25).toFloat(), (w*0.08).toFloat(), paint)
+        canvas.drawCircle((w * 0.75).toFloat(), (h * 0.25).toFloat(), (w * 0.08).toFloat(), paint)
         return bmp
     }
 
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
-        val bitmap = currentSkinBitmap
-        if (bitmap == null || token.isNullOrBlank()) return
+        val bitmap = currentSkinBitmap ?: return
+        if (token.isNullOrBlank()) return
+
         val baos = ByteArrayOutputStream()
         bitmap.compress(CompressFormat.PNG, 100, baos)
         val imageBytes = baos.toByteArray()
