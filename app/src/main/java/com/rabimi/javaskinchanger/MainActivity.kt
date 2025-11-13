@@ -4,10 +4,12 @@ import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Bitmap.Config
 import android.graphics.Bitmap.createBitmap
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Base64
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.View
@@ -16,6 +18,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.switchmaterial.SwitchMaterial
 import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+import kotlinx.coroutines.*
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.net.HttpURLConnection
@@ -41,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private var currentSkinBitmap: Bitmap? = null
     private var hasSelectedSkin = false
     private var skinVariant: String = "classic"
+    private var pendingVariant: String? = null
     private var surfaceReady = false
 
     private val colorSelect = 0xFF4FC3F7.toInt()
@@ -82,13 +87,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "surfaceCreated: rendering pending skin")
                     safeRender(it)
                 } ?: run {
-                    val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
-                        eraseColor(0xFFFF0000.toInt())
-                    }
-                    currentSkinBitmap = testBitmap
-                    pendingBitmap = testBitmap
-                    Log.d(TAG, "surfaceCreated: rendering test red skin")
-                    safeRender(testBitmap)
+                    loadAccountSkinOrTest()
                 }
             }
 
@@ -127,9 +126,12 @@ class MainActivity : AppCompatActivity() {
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             skinVariant = if (isChecked) "slim" else "classic"
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-            currentSkinBitmap?.let { bmp ->
-                pendingBitmap = bmp
-                safeRender(bmp)
+
+            if (surfaceReady && currentSkinBitmap != null) {
+                pendingVariant = skinVariant
+                safeRender(currentSkinBitmap!!)
+            } else {
+                pendingVariant = skinVariant
             }
         }
 
@@ -168,6 +170,56 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadAccountSkinOrTest() {
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val token = prefs.getString("minecraft_token", null)
+
+        if (!token.isNullOrBlank()) {
+            // Coroutine で非同期取得
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val profileUrl = URL("https://api.minecraftservices.com/minecraft/profile")
+                    val conn = profileUrl.openConnection() as HttpURLConnection
+                    conn.setRequestProperty("Authorization", "Bearer $token")
+                    conn.requestMethod = "GET"
+
+                    val code = conn.responseCode
+                    if (code == 200) {
+                        val body = conn.inputStream.bufferedReader().readText()
+                        val profileJson = JSONObject(body)
+                        val skinsArray = profileJson.getJSONArray("skins")
+                        if (skinsArray.length() > 0) {
+                            val skinUrl = skinsArray.getJSONObject(0).getString("url")
+                            val skinBitmap = BitmapFactory.decodeStream(URL(skinUrl).openStream())
+                            currentSkinBitmap = Bitmap.createScaledBitmap(skinBitmap, 64, 64, true)
+                            pendingBitmap = currentSkinBitmap
+
+                            withContext(Dispatchers.Main) {
+                                safeRender(currentSkinBitmap!!)
+                            }
+                            return@launch
+                        }
+                    }
+                    conn.disconnect()
+                } catch (e: Exception) {
+                    Log.e(TAG, "loadAccountSkinOrTest failed: ${e.message}")
+                }
+
+                // 取得失敗時は赤テストスキン
+                val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
+                currentSkinBitmap = testBitmap
+                pendingBitmap = testBitmap
+                withContext(Dispatchers.Main) { safeRender(testBitmap) }
+            }
+        } else {
+            // token がない場合は赤テスト
+            val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
+            currentSkinBitmap = testBitmap
+            pendingBitmap = testBitmap
+            safeRender(testBitmap)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         try { skinView.onResume() } catch (_: Exception) {}
@@ -182,26 +234,32 @@ class MainActivity : AppCompatActivity() {
     private fun safeRender(bitmap: Bitmap) {
         Log.d(TAG, "safeRender called. surfaceReady=$surfaceReady, bitmap=${bitmap.width}x${bitmap.height}")
         if (!surfaceReady) {
-            // まだ surface が準備できていない場合
-            if (pendingBitmap != bitmap) { // 既に予約されていなければ
-                pendingBitmap = bitmap
-                skinView.postDelayed({
-                    if (pendingBitmap == bitmap) safeRender(bitmap)
-                }, 150)
-            }
+            Log.d(TAG, "safeRender: surface not ready, delaying...")
+            skinView.postDelayed({ safeRender(bitmap) }, 150)
             return
         }
 
         skinView.post {
             try {
                 applyVariantToSkinView()
-                Log.d(TAG, "safeRender: calling skinView.render()")
                 skinView.render(bitmap)
-                Log.d(TAG, "safeRender: rendered successfully")
-                if (pendingBitmap == bitmap) pendingBitmap = null
+                pendingBitmap = null
+                Log.d(TAG, "safeRender: rendered successfully with variant=$skinVariant")
             } catch (e: Exception) {
                 Log.e(TAG, "safeRender failed: ${e.message}")
             }
+        }
+    }
+
+    private fun applyVariantToSkinView() {
+        try {
+            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
+            val variantToApply = pendingVariant ?: skinVariant
+            m.invoke(skinView, variantToApply)
+            Log.d(TAG, "applyVariantToSkinView called. variant=$variantToApply")
+            pendingVariant = null
+        } catch (e: Exception) {
+            Log.w(TAG, "applyVariantToSkinView failed: ${e.message}")
         }
     }
 
@@ -237,16 +295,6 @@ class MainActivity : AppCompatActivity() {
                     .setPositiveButton("OK", null)
                     .show()
             }
-        }
-    }
-
-    private fun applyVariantToSkinView() {
-        try {
-            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
-            m.invoke(skinView, skinVariant)
-            Log.d(TAG, "applyVariantToSkinView called. variant=$skinVariant")
-        } catch (e: Exception) {
-            Log.w(TAG, "applyVariantToSkinView failed: ${e.message}")
         }
     }
 
