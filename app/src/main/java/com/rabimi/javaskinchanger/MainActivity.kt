@@ -78,13 +78,15 @@ class MainActivity : AppCompatActivity() {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 surfaceReady = true
                 Log.d(TAG, "surfaceCreated: ready=${holder.surface.isValid}")
+
                 // Surface生成後に初期描画
                 pendingBitmap?.let {
                     Log.d(TAG, "surfaceCreated: rendering pending skin")
                     safeRender(it)
                 } ?: run {
+                    // pendingBitmap が null の場合、テストスキン（グレー）を作成
                     val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply {
-                        eraseColor(0xFF888888.toInt()) // グレー
+                        eraseColor(0xFF888888.toInt())
                     }
                     currentSkinBitmap = testBitmap
                     pendingBitmap = testBitmap
