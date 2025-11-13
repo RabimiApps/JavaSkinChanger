@@ -65,60 +65,13 @@ class MainActivity : AppCompatActivity() {
         // skinContainer を取得してから SkinView を動的生成
         skinContainer = findViewById(R.id.skinContainer)
 
-        // SkinView を生成する前に最低限の GLSurfaceView 初期化を行う（GLThread NPE 対策）
+        // SkinView を生成（**ここでは library にレンダラー初期化を任せる**）
         skinView = SkinView3DSurfaceView(this)
 
-        // try to set EGL version / set a minimal renderer so GLSurfaceView creates GLThread.
-        try {
-            // set EGLContext client version if available
-            try {
-                skinView.javaClass.getMethod("setEGLContextClientVersion", Int::class.javaPrimitiveType)
-                    .invoke(skinView, 2)
-                Log.d(TAG, "Called setEGLContextClientVersion(2) on skinView")
-            } catch (_: NoSuchMethodException) {
-                // ignore
-            } catch (e: Exception) {
-                Log.w(TAG, "setEGLContextClientVersion call failed: ${e.message}")
-            }
+        // --- 重要: 以下のGL初期化（setEGLContextClientVersion / setRenderer 等）は削除しました ---
+        // (ライブラリ側が内部でRendererを設定するため、二重設定で例外が出ていました)
 
-            // Provide a minimal no-op Renderer to ensure GLSurfaceView creates its GLThread
-            val noopRenderer = object : GLSurfaceView.Renderer {
-                override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-                    // no-op
-                }
-
-                override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-                    // no-op
-                }
-
-                override fun onDrawFrame(gl: GL10?) {
-                    // no-op
-                }
-            }
-
-            try {
-                skinView.setRenderer(noopRenderer)
-                // Use RENDERMODE_WHEN_DIRTY to avoid continuous rendering until library needs it
-                try {
-                    skinView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
-                } catch (_: Exception) {}
-                Log.d(TAG, "Assigned noop Renderer to skinView to initialize GLThread")
-            } catch (e: Exception) {
-                Log.w(TAG, "setRenderer failed via direct call: ${e.message}")
-                // If direct call failed, attempt reflection
-                try {
-                    val m = skinView.javaClass.getMethod("setRenderer", GLSurfaceView.Renderer::class.java)
-                    m.invoke(skinView, noopRenderer)
-                    Log.d(TAG, "Assigned noop Renderer to skinView via reflection")
-                } catch (re: Exception) {
-                    Log.w(TAG, "Reflection setRenderer failed: ${re.message}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "GL init block failed: ${e.message}")
-        }
-
-        // add to container AFTER setting renderer so GLThread exists by the time surface is created
+        // add to container
         val lp = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
@@ -249,7 +202,7 @@ class MainActivity : AppCompatActivity() {
                 val testBmp = createTestBitmap(64, 64)
                 try {
                     applyVariantToSkinView()
-                    // requestRender if library expects GLThread to render
+                    // library 側が GLThread を持っていれば render() で描画できるはず
                     try {
                         skinView.render(testBmp)
                         Log.d(TAG, "render test bitmap in surfaceCreated -> success")
