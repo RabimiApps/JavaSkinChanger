@@ -5,12 +5,9 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Bitmap.Config
-import android.graphics.Bitmap.createBitmap
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
-import android.view.SurfaceHolder
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
@@ -26,9 +23,7 @@ import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
-    companion object {
-        private const val TAG = "SkinDebug"
-    }
+    companion object { private const val TAG = "SkinDebug" }
 
     private lateinit var skinView: SkinView3DSurfaceView
     private lateinit var txtUsername: TextView
@@ -40,12 +35,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lblModel: TextView
 
     private val REQUEST_SKIN_PICK = 1001
-    private var pendingBitmap: Bitmap? = null
     private var currentSkinBitmap: Bitmap? = null
+    private var pendingBitmap: Bitmap? = null
     private var hasSelectedSkin = false
+
     private var skinVariant: String = "classic"
     private var pendingVariant: String? = null
-    private var surfaceReady = false
 
     private val colorSelect = 0xFF4FC3F7.toInt()
     private val colorUploadTarget = 0xFF4CAF50.toInt()
@@ -56,7 +51,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
-        val container: FrameLayout = findViewById(R.id.skinContainer)
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -65,87 +59,47 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // --- SkinView 初期化 ---
-        skinView = SkinView3DSurfaceView(this)
-        container.addView(
-            skinView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        )
-        skinView.bringToFront()
-
-        // --- Surface監視 ---
-        skinView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                surfaceReady = true
-                Log.d(TAG, "surfaceCreated: ready=${holder.surface.isValid}")
-
-                // GLThreadが未生成なら resume を呼んで生成を確実にする
-                try {
-                    Log.d(TAG, "surfaceCreated: calling skinView.onResume() to start GLThread")
-                    skinView.onResume()
-                } catch (e: Exception) {
-                    Log.w(TAG, "surfaceCreated: skinView.onResume() failed: ${e.message}")
-                }
-
-                // pending があれば描画、それ以外はアカウントスキンかテストを読み込む
-                pendingBitmap?.let {
-                    Log.d(TAG, "surfaceCreated: rendering pending skin")
-                    safeRender(it)
-                } ?: run {
-                    loadAccountSkinOrTest()
-                }
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                Log.d(TAG, "surfaceChanged: ${width}x$height")
-            }
-
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                surfaceReady = false
-                Log.d(TAG, "surfaceDestroyed called - pausing GL")
-                try {
-                    skinView.onPause()
-                } catch (e: Exception) {
-                    Log.w(TAG, "surfaceDestroyed: skinView.onPause() failed: ${e.message}")
-                }
-            }
-        })
+        // SkinView を XML で置いてある前提
+        skinView = findViewById(R.id.skinView)
 
         setupUI()
         checkLogin()
+
+        // 初期スキン読み込み
+        loadAccountSkinOrTest()
     }
 
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume called → skinView.onResume()")
+        skinView.onResume()
+
+        pendingBitmap?.let { safeRender(it) }
+    }
+
+    override fun onPause() {
+        Log.d(TAG, "onPause called → skinView.onPause()")
+        skinView.onPause()
+        super.onPause()
+    }
+
+    // ----- UI -----
     private fun setupUI() {
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
-        btnSelect.isAllCaps = false
         btnSelect.text = "画像を選択"
 
         btnUpload.visibility = View.GONE
         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadInitial)
-        btnUpload.isAllCaps = false
         btnUpload.text = "アップロード"
-
-        btnLibrary.backgroundTintList = ColorStateList.valueOf(0xFF9C27B0.toInt())
-        btnLibrary.isAllCaps = false
-        btnLogout.backgroundTintList = ColorStateList.valueOf(0xFFF44336.toInt())
-        btnLogout.isAllCaps = false
-
-        switchModel.isChecked = false
-        lblModel.text = "モデル: Steve"
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             val newVariant = if (isChecked) "slim" else "classic"
             skinVariant = newVariant
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
 
-            if (surfaceReady && currentSkinBitmap != null) {
+            currentSkinBitmap?.let {
                 pendingVariant = skinVariant
-                safeRender(currentSkinBitmap!!)
-            } else {
-                pendingVariant = skinVariant
+                safeRender(it)
             }
         }
 
@@ -153,8 +107,7 @@ class MainActivity : AppCompatActivity() {
         btnUpload.setOnClickListener { handleUpload() }
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this)
-                .setTitle("ライブラリ")
-                .setMessage("スキンライブラリ機能はまだ実装されていません")
+                .setMessage("まだ未実装です")
                 .setPositiveButton("OK", null)
                 .show()
         }
@@ -169,172 +122,117 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
-        if (username.isNullOrBlank() || token.isNullOrBlank()) {
-            AlertDialog.Builder(this)
-                .setTitle("ログインが必要です")
-                .setMessage("ログイン情報が見つかりません。再ログインしてください。")
-                .setPositiveButton("OK") { _, _ ->
-                    startActivity(Intent(this, WelcomeActivity::class.java))
-                    finish()
-                }
-                .setCancelable(false)
-                .show()
+
+        if (username == null || token == null) {
+            startActivity(Intent(this, WelcomeActivity::class.java))
+            finish()
         } else {
             txtUsername.text = "ログイン中: $username"
         }
     }
 
+    // ----- スキン読み込み（アカウント or テスト）-----
     private fun loadAccountSkinOrTest() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
 
-        if (!token.isNullOrBlank()) {
-            // Coroutine で非同期取得
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val profileUrl = URL("https://api.minecraftservices.com/minecraft/profile")
-                    val conn = profileUrl.openConnection() as HttpURLConnection
-                    conn.setRequestProperty("Authorization", "Bearer $token")
-                    conn.requestMethod = "GET"
-
-                    val code = conn.responseCode
-                    if (code == 200) {
-                        val body = conn.inputStream.bufferedReader().readText()
-                        val profileJson = JSONObject(body)
-                        val skinsArray = profileJson.optJSONArray("skins")
-                        if (skinsArray != null && skinsArray.length() > 0) {
-                            val skinUrl = skinsArray.getJSONObject(0).getString("url")
-                            val skinBitmap = BitmapFactory.decodeStream(URL(skinUrl).openStream())
-                            currentSkinBitmap = Bitmap.createScaledBitmap(skinBitmap, 64, 64, true)
-                            pendingBitmap = currentSkinBitmap
-
-                            withContext(Dispatchers.Main) {
-                                safeRender(currentSkinBitmap!!)
-                            }
-                            conn.disconnect()
-                            return@launch
-                        }
-                    }
-                    conn.disconnect()
-                } catch (e: Exception) {
-                    Log.e(TAG, "loadAccountSkinOrTest failed: ${e.message}")
-                }
-
-                // 取得失敗時は赤テストスキン
-                val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
-                currentSkinBitmap = testBitmap
-                pendingBitmap = testBitmap
-                withContext(Dispatchers.Main) { safeRender(testBitmap) }
-            }
-        } else {
-            // token がない場合は赤テスト
-            val testBitmap = createBitmap(64, 64, Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
-            currentSkinBitmap = testBitmap
-            pendingBitmap = testBitmap
-            safeRender(testBitmap)
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // 注意: surface が未準備だと skinView.onResume() は呼ばない（surfaceCreated で呼ぶ）
-        Log.d(TAG, "onResume called (not forcing skinView.onResume here)")
-        // 描画リトライだけ行う
-        pendingBitmap?.let { safeRender(it) }
-    }
-
-    override fun onPause() {
-        // onPause は surfaceDestroyed で pause するためここでは安全に呼ばないが
-        // 念のため try/catch で呼ぶ（surface 未準備なら例外を握り潰す）
-        try { skinView.onPause() } catch (_: Exception) {}
-        super.onPause()
-    }
-
-    private fun safeRender(bitmap: Bitmap) {
-        Log.d(TAG, "safeRender called. surfaceReady=$surfaceReady, bitmap=${bitmap.width}x${bitmap.height}")
-        if (!surfaceReady) {
-            Log.d(TAG, "safeRender: surface not ready, delaying...")
-            // 150ms ごとにリトライ（surfaceCreated で最終描画もするので過剰にはならない）
-            skinView.postDelayed({ safeRender(bitmap) }, 150)
+        if (token == null) {
+            loadFallbackSkin()
             return
         }
 
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val conn = (URL("https://api.minecraftservices.com/minecraft/profile")
+                    .openConnection() as HttpURLConnection)
+
+                conn.setRequestProperty("Authorization", "Bearer $token")
+
+                if (conn.responseCode == 200) {
+                    val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                    val skins = json.optJSONArray("skins")
+                    if (skins != null && skins.length() > 0) {
+                        val skinUrl = skins.getJSONObject(0).getString("url")
+                        val bmp = BitmapFactory.decodeStream(URL(skinUrl).openStream())
+                        val scaled = Bitmap.createScaledBitmap(bmp, 64, 64, true)
+                        currentSkinBitmap = scaled
+                        pendingBitmap = scaled
+
+                        withContext(Dispatchers.Main) { safeRender(scaled) }
+                        return@launch
+                    }
+                }
+            } catch (_: Exception) {}
+
+            withContext(Dispatchers.Main) { loadFallbackSkin() }
+        }
+    }
+
+    private fun loadFallbackSkin() {
+        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+        bmp.eraseColor(0xFFFF0000.toInt())
+        currentSkinBitmap = bmp
+        pendingBitmap = bmp
+        safeRender(bmp)
+    }
+
+    // ----- 描画 -----
+    private fun safeRender(bitmap: Bitmap) {
         skinView.post {
             try {
-                applyVariantToSkinView()
+                applyVariant()
                 skinView.render(bitmap)
                 pendingBitmap = null
-                Log.d(TAG, "safeRender: rendered successfully with variant=$skinVariant")
             } catch (e: Exception) {
                 Log.e(TAG, "safeRender failed: ${e.message}")
             }
         }
     }
 
-    private fun applyVariantToSkinView() {
-        try {
-            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
-            val variantToApply = pendingVariant ?: skinVariant
-            m.invoke(skinView, variantToApply)
-            Log.d(TAG, "applyVariantToSkinView called. variant=$variantToApply")
-            pendingVariant = null
-        } catch (e: Exception) {
-            Log.w(TAG, "applyVariantToSkinView failed: ${e.message}")
-        }
+    private fun applyVariant() {
+        val m = skinView.javaClass.getMethod("setVariant", String::class.java)
+        val v = pendingVariant ?: skinVariant
+        m.invoke(skinView, v)
+        pendingVariant = null
     }
 
+    // ----- ギャラリー -----
     private fun selectSkinImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-        startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
+        startActivityForResult(intent, REQUEST_SKIN_PICK)
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_SKIN_PICK && resultCode == Activity.RESULT_OK) {
+    override fun onActivityResult(req: Int, res: Int, data: Intent?) {
+        super.onActivityResult(req, res, data)
+        if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
             val uri = data?.data ?: return
-            try {
-                val bmpOriginal = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                val bmp = Bitmap.createScaledBitmap(
-                    bmpOriginal.copy(Bitmap.Config.ARGB_8888, true),
-                    64, 64, true
-                )
-                Log.d(TAG, "Skin selected: ${bmp.width}x${bmp.height}")
-                currentSkinBitmap = bmp
-                pendingBitmap = bmp
-                safeRender(bmp)
+            val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+            val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
 
-                if (!hasSelectedSkin) {
-                    hasSelectedSkin = true
-                    btnUpload.visibility = View.VISIBLE
-                    btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
-                }
-            } catch (e: Exception) {
-                AlertDialog.Builder(this)
-                    .setTitle("エラー")
-                    .setMessage("スキンの読み込みに失敗しました: ${e.message}")
-                    .setPositiveButton("OK", null)
-                    .show()
+            currentSkinBitmap = bmp
+            pendingBitmap = bmp
+            safeRender(bmp)
+
+            if (!hasSelectedSkin) {
+                hasSelectedSkin = true
+                btnUpload.visibility = View.VISIBLE
+                btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
             }
         }
     }
 
+    // ----- アップロード -----
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
-        val bitmap = currentSkinBitmap ?: return
-        if (token.isNullOrBlank()) return
+        val bmp = currentSkinBitmap ?: return
 
-        val baos = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
-        val imageBytes = baos.toByteArray()
+        if (token == null) return
 
-        val progress = ProgressBar(this)
         val dialog = AlertDialog.Builder(this)
-            .setTitle("アップロード中")
-            .setView(progress)
+            .setMessage("アップロード中…")
             .setCancelable(false)
-            .create()
-        dialog.show()
+            .show()
 
         Thread {
             var conn: HttpURLConnection? = null
@@ -344,29 +242,29 @@ class MainActivity : AppCompatActivity() {
                 conn.requestMethod = "POST"
                 conn.doOutput = true
                 conn.setRequestProperty("Authorization", "Bearer $token")
-                val boundary = "----SkinUploadBoundary${System.currentTimeMillis()}"
+
+                val boundary = "----SkinBoundary-${System.currentTimeMillis()}"
                 conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
 
-                val out = DataOutputStream(conn.outputStream)
-                val lineEnd = "\r\n"
-                val twoHyphens = "--"
+                val os = DataOutputStream(conn.outputStream)
+                val line = "\r\n"
 
-                out.writeBytes(twoHyphens + boundary + lineEnd)
-                out.writeBytes("Content-Disposition: form-data; name=\"variant\"$lineEnd$lineEnd")
-                out.writeBytes("$skinVariant$lineEnd")
-                out.writeBytes(twoHyphens + boundary + lineEnd)
-                out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$lineEnd")
-                out.writeBytes("Content-Type: image/png$lineEnd$lineEnd")
-                out.write(imageBytes)
-                out.writeBytes(lineEnd + twoHyphens + boundary + twoHyphens + lineEnd)
-                out.flush()
-                out.close()
+                os.writeBytes("--$boundary$line")
+                os.writeBytes("Content-Disposition: form-data; name=\"variant\"$line$line")
+                os.writeBytes("$skinVariant$line")
 
-                val code = conn.responseCode
-                Log.d(TAG, "Upload finished with code: $code")
-            } catch (e: Exception) {
-                Log.e(TAG, "Upload failed: ${e.message}")
-            } finally {
+                os.writeBytes("--$boundary$line")
+                os.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$line")
+                os.writeBytes("Content-Type: image/png$line$line")
+
+                val baos = ByteArrayOutputStream()
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, baos)
+                os.write(baos.toByteArray())
+
+                os.writeBytes(line + "--$boundary--$line")
+                os.flush()
+            } catch (_: Exception) {}
+            finally {
                 runOnUiThread { dialog.dismiss() }
                 conn?.disconnect()
             }
