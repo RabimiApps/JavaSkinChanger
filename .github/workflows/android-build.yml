@@ -79,12 +79,12 @@ jobs:
             --out $APK_SIGNED \
             $APK_UNSIGN
 
-      # 10. Draft リリースにアップロード
-      - name: Create Draft Release
+      - name: Release
         uses: ncipollo/release-action@v1
-        with:
+         with:
           tag: BETA
           name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
           artifacts: output/JavaSkinChanger-latest.apk
-          draft: false
+          allowUpdates: true
+          replacesArtifacts: true
           prerelease: true
