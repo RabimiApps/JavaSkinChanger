@@ -81,7 +81,7 @@ jobs:
 
       - name: Release
         uses: ncipollo/release-action@v1
-         with:
+        with:
           tag: BETA
           name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
           artifacts: output/JavaSkinChanger-latest.apk
