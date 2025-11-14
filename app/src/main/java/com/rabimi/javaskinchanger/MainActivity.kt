@@ -8,7 +8,6 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
-import android.view.SurfaceHolder
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
@@ -42,7 +41,6 @@ class MainActivity : AppCompatActivity() {
 
     private var skinVariant: String = "classic"
     private var pendingVariant: String? = null
-    private var surfaceReady = false
 
     private val colorSelect = 0xFF4FC3F7.toInt()
     private val colorUploadTarget = 0xFF4CAF50.toInt()
@@ -53,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
+        // ----- UI 初期化 -----
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -61,24 +60,13 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        skinView = findViewById(R.id.skinView)
-
-        // Surface callback
-        skinView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                surfaceReady = true
-                Log.d(TAG, "surfaceCreated")
-                pendingBitmap?.let { safeRender(it) }
-            }
-
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                surfaceReady = false
-                try { skinView.onPause() } catch (_: Exception) {}
-                Log.d(TAG, "surfaceDestroyed")
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-        })
+        // ----- SkinView をコードで生成して FrameLayout に追加 -----
+        val container = findViewById<FrameLayout>(R.id.skinContainer)
+        skinView = SkinView3DSurfaceView(this) // Context のみで作成
+        container.addView(skinView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
 
         setupUI()
         checkLogin()
@@ -87,18 +75,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume → skinView.onResume()")
-        try { skinView.onResume() } catch (_: Exception) {}
+        Log.d(TAG, "onResume called → skinView.onResume()")
+        skinView.onResume()
         pendingBitmap?.let { safeRender(it) }
     }
 
     override fun onPause() {
-        Log.d(TAG, "onPause → skinView.onPause()")
-        try { skinView.onPause() } catch (_: Exception) {}
+        Log.d(TAG, "onPause called → skinView.onPause()")
+        skinView.onPause()
         super.onPause()
     }
 
-    // ----- UI -----
     private fun setupUI() {
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
         btnSelect.text = "画像を選択"
@@ -106,9 +93,6 @@ class MainActivity : AppCompatActivity() {
         btnUpload.visibility = View.GONE
         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadInitial)
         btnUpload.text = "アップロード"
-
-        switchModel.isChecked = false
-        lblModel.text = "モデル: Steve"
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             val newVariant = if (isChecked) "slim" else "classic"
@@ -149,12 +133,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ----- スキン読み込み（アカウント or テスト）-----
     private fun loadAccountSkinOrTest() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
 
-        if (token.isNullOrBlank()) {
+        if (token == null) {
             loadFallbackSkin()
             return
         }
@@ -191,13 +174,7 @@ class MainActivity : AppCompatActivity() {
         safeRender(bmp)
     }
 
-    // ----- 描画 -----
     private fun safeRender(bitmap: Bitmap) {
-        if (!surfaceReady) {
-            skinView.postDelayed({ safeRender(bitmap) }, 150)
-            return
-        }
-
         skinView.post {
             try {
                 applyVariant()
@@ -210,17 +187,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyVariant() {
-        try {
-            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
-            val v = pendingVariant ?: skinVariant
-            m.invoke(skinView, v)
-            pendingVariant = null
-        } catch (e: Exception) {
-            Log.w(TAG, "applyVariant failed: ${e.message}")
-        }
+        val m = skinView.javaClass.getMethod("setVariant", String::class.java)
+        val v = pendingVariant ?: skinVariant
+        m.invoke(skinView, v)
+        pendingVariant = null
     }
 
-    // ----- ギャラリー -----
     private fun selectSkinImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
         startActivityForResult(intent, REQUEST_SKIN_PICK)
@@ -245,12 +217,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ----- アップロード -----
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
         val bmp = currentSkinBitmap ?: return
-        if (token.isNullOrBlank()) return
+        if (token == null) return
 
         val dialog = AlertDialog.Builder(this)
             .setMessage("アップロード中…")
