@@ -4,7 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ダウンロード - JavaSkinChanger</title>
-  <link rel="stylesheet" href="src/style.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f0f2f5; }
+    .download {
+      max-width: 800px;
+      margin: 3rem auto;
+      text-align: center;
+    }
+    .download h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    .download p { font-size: 1.1rem; margin-bottom: 2rem; color: #555; }
+    .download-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 10px;
+      transition: all 0.2s;
+      text-decoration: none;
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-android { background: #3DDC84; }
+    .btn-android:hover { background: #35b673; }
+    .btn-disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      color: #666;
+    }
+    .note {
+      margin-top: 1.5rem;
+      color: #777;
+      font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -22,16 +61,17 @@
   <main>
     <section class="download">
       <h1>ダウンロード</h1>
-        <p>JavaSkinChangerは現在Android版のみ対応しています。</p>
+      <p>JavaSkinChangerは現在 <strong>Android版のみ対応</strong> しています。</p>
 
-          <div class="download-links">
-            <a href="https://github.com/RabimiApps/JavaSkinChanger/releases/tag/BETA/JavaSkinChanger-latest.apk
-" class="btn">
-              Android版 ダウンロード
-            </a>
-            <button class="btn disabled" disabled>Windows版（今後対応予定）</button>
-          </div>
-      <p>※ ウイルスチェック済み、安全にお使いいただけます。</p>
+      <div class="download-links">
+        <a href="https://github.com/RabimiApps/JavaSkinChanger/releases/latest/tag/BETA/JavaSkinChanger-latest.apk" class="btn btn-android">
+          Android版 ダウンロード
+        </a>
+        <div class="btn btn-disabled">Windows版（Coming Soon）</div>
+        <div class="btn btn-disabled">Mac版（Coming Soon）</div>
+      </div>
+
+      <p class="note">※ ダウンロードはGitHubの最新リリースから取得されます。安全にお使いください。</p>
     </section>
   </main>
 
