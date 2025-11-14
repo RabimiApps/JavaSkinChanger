@@ -47,10 +47,8 @@ class MainActivity : AppCompatActivity() {
     private val colorUploadTarget = 0xFF4CAF50.toInt()
     private val colorUploadInitial = 0xFFBDBDBD.toInt()
 
-    // surface が描画可能か
     private var surfaceReady = false
 
-    // coroutine scope for network tasks
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +56,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
-        // view binding
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -67,7 +64,6 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // SkinView をコードで生成してコンテナに追加（XML に置く場合は findViewById でも可）
         val container = findViewById<FrameLayout>(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
         container.addView(skinView, FrameLayout.LayoutParams(
@@ -75,15 +71,15 @@ class MainActivity : AppCompatActivity() {
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
 
-        // Surface の準備完了を監視（ここで onResume/onPause を行う）
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated")
                 surfaceReady = true
-                // GLSurfaceView の GLThread が未生成だと例外になる場合があるので安全に呼ぶ
                 safeCallGLResume()
-                // pending があれば描画
-                pendingBitmap?.let { safeRender(it) }
+                pendingBitmap?.let {
+                    safeRender(it)
+                    pendingBitmap = null
+                }
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -105,16 +101,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "onResume called")
-        // activity の onResume で無条件に皮を呼ぶと GLSurfaceView の内部状態次第で NPE になる端末があるため、
-        // surface が既に出来ていれば安全に呼ぶ、そうでなければ surfaceCreated 側で呼ばせる
-        if (surfaceReady) safeCallGLResume()
-        // pending があれば描画予約（safeRender 内で surfaceReady チェック）
-        pendingBitmap?.let { safeRender(it) }
+        safeCallGLResume()
     }
 
     override fun onPause() {
         Log.d(TAG, "onPause called")
-        // surfaceDestroyed 側でも pause するので try/catch で安全に呼ぶ
         safeCallGLPause()
         super.onPause()
     }
@@ -136,8 +127,6 @@ class MainActivity : AppCompatActivity() {
             val newVariant = if (isChecked) "slim" else "classic"
             skinVariant = newVariant
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-
-            // 現在表示中のスキンがあればすぐに再描画（スリム/クラシック切替）
             currentSkinBitmap?.let {
                 pendingVariant = skinVariant
                 safeRender(it)
@@ -166,10 +155,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 起動時にアカウントスキンを取得して表示する（トークンがあれば）。
-     * ユーザーが選択済み (hasSelectedSkin==true) の場合はアカウントスキンを pending にしない。
-     */
     private fun loadAccountSkinOrTest() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
@@ -197,13 +182,12 @@ class MainActivity : AppCompatActivity() {
                         val bmp = BitmapFactory.decodeStream(bmpStream)
                         val scaled = Bitmap.createScaledBitmap(bmp, 64, 64, true)
                         currentSkinBitmap = scaled
-                        // ユーザーがまだ選択していなければ pending としてロード（選択済なら無視）
                         if (!hasSelectedSkin) pendingBitmap = scaled
 
                         withContext(Dispatchers.Main) {
-                            // surfaceReady が true なら即描画
                             if (surfaceReady) {
                                 safeRender(if (hasSelectedSkin) currentSkinBitmap!! else scaled)
+                                pendingBitmap = null
                             }
                         }
                         conn.disconnect()
@@ -215,7 +199,6 @@ class MainActivity : AppCompatActivity() {
                 Log.w(TAG, "loadAccountSkinOrTest failed: ${e.message}")
             }
 
-            // 失敗時 / スキン無し
             withContext(Dispatchers.Main) { if (surfaceReady) loadFallbackSkin() else pendingBitmap = createRedTestBitmap() }
         }
     }
@@ -233,10 +216,6 @@ class MainActivity : AppCompatActivity() {
         return bmp
     }
 
-    /**
-     * 描画は surfaceReady を必ずチェックして行う。
-     * surfaceReady=false の場合は pendingBitmap に保留する。
-     */
     private fun safeRender(bitmap: Bitmap) {
         if (!surfaceReady) {
             pendingBitmap = bitmap
@@ -346,42 +325,11 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // -----------------------
-    // GLSurfaceView の内部 GLThread が存在するかを反射で確認して安全に onResume/onPause を呼ぶ
-    // 端末差で GLSurfaceView の内部状態遷移が遅くて null になることがあるための保険。
-    // -----------------------
-    private fun hasInternalGLThread(): Boolean {
-        return try {
-            val f = skinView.javaClass.superclass.getDeclaredField("mGLThread")
-            f.isAccessible = true
-            f.get(skinView) != null
-        } catch (_: Exception) {
-            // reflection 失敗したら保守的に false にして try/catch 呼び出しに頼る
-            false
-        }
-    }
-
     private fun safeCallGLResume() {
-        try {
-            // 反射で null か判定できるなら確認
-            if (!hasInternalGLThread()) {
-                // まだ内部スレッド無ければ onResume を呼んで作る（try/catch）
-                skinView.onResume()
-            } else {
-                // 既に存在すれば通常呼ぶ
-                skinView.onResume()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "safeCallGLResume suppressed: ${e.message}")
-        }
+        try { skinView.onResume() } catch (_: Exception) {}
     }
 
     private fun safeCallGLPause() {
-        try {
-            // pause も同様に安全に呼ぶ
-            skinView.onPause()
-        } catch (e: Exception) {
-            Log.w(TAG, "safeCallGLPause suppressed: ${e.message}")
-        }
+        try { skinView.onPause() } catch (_: Exception) {}
     }
 }
