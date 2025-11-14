@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.view.SurfaceHolder
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
@@ -46,6 +47,8 @@ class MainActivity : AppCompatActivity() {
     private val colorUploadTarget = 0xFF4CAF50.toInt()
     private val colorUploadInitial = 0xFFBDBDBD.toInt()
 
+    private var surfaceReady = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
@@ -61,40 +64,33 @@ class MainActivity : AppCompatActivity() {
 
         // ----- SkinView を安全に初期化 -----
         val container = findViewById<FrameLayout>(R.id.skinContainer)
-        skinView = SkinView3DSurfaceView(this).apply {
-            // 必要であればここで初期設定
-        }
+        skinView = SkinView3DSurfaceView(this)
         container.addView(skinView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
 
+        // Surface の準備完了を監視
+        skinView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                Log.d(TAG, "surfaceCreated")
+                surfaceReady = true
+                skinView.onResume()
+                pendingBitmap?.let { safeRender(it) }
+            }
+
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                Log.d(TAG, "surfaceDestroyed")
+                surfaceReady = false
+                try { skinView.onPause() } catch (_: Exception) {}
+            }
+        })
+
         setupUI()
         checkLogin()
         loadAccountSkinOrTest()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        Log.d(TAG, "onResume called")
-        // GLSurfaceView の初期化後に安全に呼ぶ
-        skinView.post {
-            try {
-                skinView.onResume()
-                pendingBitmap?.let { safeRender(it) }
-            } catch (e: Exception) {
-                Log.e(TAG, "onResume failed: ${e.message}")
-            }
-        }
-    }
-
-    override fun onPause() {
-        Log.d(TAG, "onPause called")
-        skinView.post {
-            try { skinView.onPause() }
-            catch (e: Exception) { Log.e(TAG, "onPause failed: ${e.message}") }
-        }
-        super.onPause()
     }
 
     private fun setupUI() {
@@ -147,13 +143,13 @@ class MainActivity : AppCompatActivity() {
                         val bmp = BitmapFactory.decodeStream(URL(skinUrl).openStream())
                         val scaled = Bitmap.createScaledBitmap(bmp, 64, 64, true)
                         currentSkinBitmap = scaled
-                        pendingBitmap = scaled
-                        withContext(Dispatchers.Main) { safeRender(scaled) }
+                        if (!hasSelectedSkin) pendingBitmap = scaled
+                        withContext(Dispatchers.Main) { if (surfaceReady) safeRender(if (hasSelectedSkin) currentSkinBitmap!! else scaled) }
                         return@launch
                     }
                 }
             } catch (_: Exception) {}
-            withContext(Dispatchers.Main) { loadFallbackSkin() }
+            withContext(Dispatchers.Main) { if (surfaceReady) loadFallbackSkin() }
         }
     }
 
@@ -161,11 +157,15 @@ class MainActivity : AppCompatActivity() {
         val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
         bmp.eraseColor(0xFFFF0000.toInt())
         currentSkinBitmap = bmp
-        pendingBitmap = bmp
-        safeRender(bmp)
+        if (!hasSelectedSkin) pendingBitmap = bmp
+        if (surfaceReady) safeRender(bmp)
     }
 
     private fun safeRender(bitmap: Bitmap) {
+        if (!surfaceReady) {
+            pendingBitmap = bitmap
+            return
+        }
         skinView.post {
             try {
                 applyVariant()
@@ -196,13 +196,11 @@ class MainActivity : AppCompatActivity() {
             val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
             currentSkinBitmap = bmp
             pendingBitmap = bmp
+            hasSelectedSkin = true
             safeRender(bmp)
 
-            if (!hasSelectedSkin) {
-                hasSelectedSkin = true
-                btnUpload.visibility = View.VISIBLE
-                btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
-            }
+            btnUpload.visibility = View.VISIBLE
+            btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
         }
     }
 
