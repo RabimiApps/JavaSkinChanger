@@ -83,7 +83,7 @@ jobs:
       - name: Create Draft Release
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ env.VERSION_NAME }}
+          tag: BETA
           name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
           artifacts: output/JavaSkinChanger-latest.apk
           draft: false
