@@ -51,7 +51,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
-        // ----- UI 初期化 -----
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -60,9 +59,11 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // ----- SkinView をコードで生成して FrameLayout に追加 -----
+        // ----- SkinView を安全に初期化 -----
         val container = findViewById<FrameLayout>(R.id.skinContainer)
-        skinView = SkinView3DSurfaceView(this) // Context のみで作成
+        skinView = SkinView3DSurfaceView(this).apply {
+            // 必要であればここで初期設定
+        }
         container.addView(skinView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
@@ -75,14 +76,24 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume called → skinView.onResume()")
-        skinView.onResume()
-        pendingBitmap?.let { safeRender(it) }
+        Log.d(TAG, "onResume called")
+        // GLSurfaceView の初期化後に安全に呼ぶ
+        skinView.post {
+            try {
+                skinView.onResume()
+                pendingBitmap?.let { safeRender(it) }
+            } catch (e: Exception) {
+                Log.e(TAG, "onResume failed: ${e.message}")
+            }
+        }
     }
 
     override fun onPause() {
-        Log.d(TAG, "onPause called → skinView.onPause()")
-        skinView.onPause()
+        Log.d(TAG, "onPause called")
+        skinView.post {
+            try { skinView.onPause() }
+            catch (e: Exception) { Log.e(TAG, "onPause failed: ${e.message}") }
+        }
         super.onPause()
     }
 
@@ -98,21 +109,12 @@ class MainActivity : AppCompatActivity() {
             val newVariant = if (isChecked) "slim" else "classic"
             skinVariant = newVariant
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-
-            currentSkinBitmap?.let {
-                pendingVariant = skinVariant
-                safeRender(it)
-            }
+            currentSkinBitmap?.let { pendingVariant = skinVariant; safeRender(it) }
         }
 
         btnSelect.setOnClickListener { selectSkinImage() }
         btnUpload.setOnClickListener { handleUpload() }
-        btnLibrary.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setMessage("まだ未実装です")
-                .setPositiveButton("OK", null)
-                .show()
-        }
+        btnLibrary.setOnClickListener { AlertDialog.Builder(this).setMessage("未実装").setPositiveButton("OK", null).show() }
         btnLogout.setOnClickListener {
             getSharedPreferences("prefs", MODE_PRIVATE).edit().clear().apply()
             startActivity(Intent(this, WelcomeActivity::class.java))
@@ -124,30 +126,19 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
-
-        if (username == null || token == null) {
-            startActivity(Intent(this, WelcomeActivity::class.java))
-            finish()
-        } else {
-            txtUsername.text = "ログイン中: $username"
-        }
+        if (username == null || token == null) { startActivity(Intent(this, WelcomeActivity::class.java)); finish() }
+        else { txtUsername.text = "ログイン中: $username" }
     }
 
     private fun loadAccountSkinOrTest() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
-
-        if (token == null) {
-            loadFallbackSkin()
-            return
-        }
+        if (token == null) { loadFallbackSkin(); return }
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val conn = (URL("https://api.minecraftservices.com/minecraft/profile")
-                    .openConnection() as HttpURLConnection)
+                val conn = (URL("https://api.minecraftservices.com/minecraft/profile").openConnection() as HttpURLConnection)
                 conn.setRequestProperty("Authorization", "Bearer $token")
-
                 if (conn.responseCode == 200) {
                     val json = JSONObject(conn.inputStream.bufferedReader().readText())
                     val skins = json.optJSONArray("skins")
@@ -180,17 +171,16 @@ class MainActivity : AppCompatActivity() {
                 applyVariant()
                 skinView.render(bitmap)
                 pendingBitmap = null
-            } catch (e: Exception) {
-                Log.e(TAG, "safeRender failed: ${e.message}")
-            }
+            } catch (e: Exception) { Log.e(TAG, "safeRender failed: ${e.message}") }
         }
     }
 
     private fun applyVariant() {
-        val m = skinView.javaClass.getMethod("setVariant", String::class.java)
-        val v = pendingVariant ?: skinVariant
-        m.invoke(skinView, v)
-        pendingVariant = null
+        try {
+            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
+            m.invoke(skinView, pendingVariant ?: skinVariant)
+            pendingVariant = null
+        } catch (_: Exception) {}
     }
 
     private fun selectSkinImage() {
@@ -204,7 +194,6 @@ class MainActivity : AppCompatActivity() {
             val uri = data?.data ?: return
             val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
             val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
-
             currentSkinBitmap = bmp
             pendingBitmap = bmp
             safeRender(bmp)
@@ -223,10 +212,7 @@ class MainActivity : AppCompatActivity() {
         val bmp = currentSkinBitmap ?: return
         if (token == null) return
 
-        val dialog = AlertDialog.Builder(this)
-            .setMessage("アップロード中…")
-            .setCancelable(false)
-            .show()
+        val dialog = AlertDialog.Builder(this).setMessage("アップロード中…").setCancelable(false).show()
 
         Thread {
             var conn: HttpURLConnection? = null
@@ -254,14 +240,10 @@ class MainActivity : AppCompatActivity() {
                 val baos = ByteArrayOutputStream()
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, baos)
                 os.write(baos.toByteArray())
-
                 os.writeBytes(line + "--$boundary--$line")
                 os.flush()
             } catch (_: Exception) {}
-            finally {
-                runOnUiThread { dialog.dismiss() }
-                conn?.disconnect()
-            }
+            finally { runOnUiThread { dialog.dismiss() }; conn?.disconnect() }
         }.start()
     }
 }
