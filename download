@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ダウンロード - JavaSkinChanger</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="logo">JavaSkinChanger</div>
+    <nav>
+      <ul>
+        <li><a href="index.html">ホーム</a></li>
+        <li><a href="download.html" class="active">ダウンロード</a></li>
+        <li><a href="howto.html">使い方</a></li>
+        <li><a href="support.html">サポート</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="download">
+      <h1>ダウンロード</h1>
+      <p>JavaSkinChangerをお使いのOSに合わせてダウンロードしてください。</p>
+
+      <div class="download-links">
+        <a href="#" class="btn">Android版 ダウンロード</a>
+        <a href="#" class="btn">Windows版 ダウンロード</a>
+      </div>
+
+      <p>※ ウイルスチェック済み、安全にお使いいただけます。</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 RabimiApps</p>
+    <p>
+      <a href="https://youtube.com/@rabimiyoutube">YouTube</a> |
+      <a href="https://x.com/LettoElod">X</a>
+    </p>
+  </footer>
+</body>
+</html>
