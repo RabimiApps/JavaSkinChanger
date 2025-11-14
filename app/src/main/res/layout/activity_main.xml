@@ -16,8 +16,8 @@
         android:layout_marginBottom="12dp"
         android:background="#F5F5F5">
        
-        <SurfaceView
-            android:id="@+id/skinSurface"
+        <dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+            android:id="@+id/skinView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" /> 
     </FrameLayout>
