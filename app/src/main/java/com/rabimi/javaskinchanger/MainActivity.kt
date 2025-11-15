@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -47,8 +48,10 @@ class MainActivity : AppCompatActivity() {
     private val colorUploadTarget = 0xFF4CAF50.toInt()
     private val colorUploadInitial = 0xFFBDBDBD.toInt()
 
+    // surface が描画可能か
     private var surfaceReady = false
 
+    // coroutine scope for network tasks
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +59,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
+        // view binding
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -64,21 +68,49 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
+        // SkinView をコードで作る前に EGL 設定などを行う（GLSurfaceView の安全対策）
         val container = findViewById<FrameLayout>(R.id.skinContainer)
+
+        // create SkinView
         skinView = SkinView3DSurfaceView(this)
+
+        // If SkinView extends GLSurfaceView (it should), safely set EGL options:
+        try {
+            if (skinView is GLSurfaceView) {
+                val gl = skinView as GLSurfaceView
+                // Use GLES 2.0 (library may expect this) — adjust if library requires GLES3
+                gl.setEGLContextClientVersion(2)
+                // Try to preserve EGL context across pause/resume to reduce reinitialization
+                gl.setPreserveEGLContextOnPause(true)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "EGL config skipped: ${e.message}")
+        }
+
+        // Add to container (must be on UI thread, we're in onCreate — OK)
         container.addView(skinView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
 
+        // Surface の準備完了を監視（ここで onResume/onPause を行う）
         skinView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceCreated")
                 surfaceReady = true
-                safeCallGLResume()
-                pendingBitmap?.let {
-                    safeRender(it)
-                    pendingBitmap = null
+
+                // post して少し落ち着かせた上で onResume を呼ぶ（GLThread が安定しない端末対策）
+                skinView.post {
+                    try {
+                        skinView.onResume()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "surfaceCreated:onResume suppressed: ${e.message}")
+                    }
+                    // pending があれば描画
+                    pendingBitmap?.let {
+                        safeRender(it)
+                        pendingBitmap = null
+                    }
                 }
             }
 
@@ -89,7 +121,14 @@ class MainActivity : AppCompatActivity() {
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 Log.d(TAG, "surfaceDestroyed")
                 surfaceReady = false
-                safeCallGLPause()
+                // pause も post して安全に
+                skinView.post {
+                    try {
+                        skinView.onPause()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "surfaceDestroyed:onPause suppressed: ${e.message}")
+                    }
+                }
             }
         })
 
@@ -100,13 +139,31 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume called")
-        safeCallGLResume()
+        Log.d(TAG, "onResume called (activity)")
+        // surface が既に準備できている場合のみ呼ぶ（そうでない場合は surfaceCreated 側で呼ぶ）
+        if (surfaceReady) {
+            skinView.post {
+                try {
+                    skinView.onResume()
+                } catch (e: Exception) {
+                    Log.w(TAG, "onResume suppressed: ${e.message}")
+                }
+            }
+        } else {
+            Log.d(TAG, "onResume: surface not ready yet, skipping skinView.onResume()")
+        }
     }
 
     override fun onPause() {
-        Log.d(TAG, "onPause called")
-        safeCallGLPause()
+        Log.d(TAG, "onPause called (activity)")
+        // surfaceDestroyed 側でも pause するが念のため安全に
+        skinView.post {
+            try {
+                skinView.onPause()
+            } catch (e: Exception) {
+                Log.w(TAG, "onPause suppressed: ${e.message}")
+            }
+        }
         super.onPause()
     }
 
@@ -127,6 +184,8 @@ class MainActivity : AppCompatActivity() {
             val newVariant = if (isChecked) "slim" else "classic"
             skinVariant = newVariant
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
+
+            // 現在表示中のスキンがあればすぐに再描画（スリム/クラシック切替）
             currentSkinBitmap?.let {
                 pendingVariant = skinVariant
                 safeRender(it)
@@ -323,13 +382,5 @@ class MainActivity : AppCompatActivity() {
                 conn?.disconnect()
             }
         }.start()
-    }
-
-    private fun safeCallGLResume() {
-        try { skinView.onResume() } catch (_: Exception) {}
-    }
-
-    private fun safeCallGLPause() {
-        try { skinView.onPause() } catch (_: Exception) {}
     }
 }
