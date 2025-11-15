@@ -9,9 +9,10 @@ import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
-import android.view.SurfaceHolder
 import android.view.View
-import android.widget.*
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -48,9 +49,6 @@ class MainActivity : AppCompatActivity() {
     private val colorUploadTarget = 0xFF4CAF50.toInt()
     private val colorUploadInitial = 0xFFBDBDBD.toInt()
 
-    // surface が描画可能か
-    private var surfaceReady = false
-
     // coroutine scope for network tasks
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -68,69 +66,26 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // SkinView をコードで作る前に EGL 設定などを行う（GLSurfaceView の安全対策）
+        // create SkinView and configure EGL safely if possible
         val container = findViewById<FrameLayout>(R.id.skinContainer)
-
-        // create SkinView
         skinView = SkinView3DSurfaceView(this)
 
-        // If SkinView extends GLSurfaceView (it should), safely set EGL options:
         try {
             if (skinView is GLSurfaceView) {
                 val gl = skinView as GLSurfaceView
-                // Use GLES 2.0 (library may expect this) — adjust if library requires GLES3
                 gl.setEGLContextClientVersion(2)
-                // Try to preserve EGL context across pause/resume to reduce reinitialization
+                // try to preserve context to reduce reinit cost on pause/resume
                 gl.setPreserveEGLContextOnPause(true)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "EGL config skipped: ${e.message}")
+            Log.w(TAG, "EGL setup skipped: ${e.message}")
         }
 
-        // Add to container (must be on UI thread, we're in onCreate — OK)
+        // add to layout
         container.addView(skinView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
-
-        // Surface の準備完了を監視（ここで onResume/onPause を行う）
-        skinView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceCreated")
-                surfaceReady = true
-
-                // post して少し落ち着かせた上で onResume を呼ぶ（GLThread が安定しない端末対策）
-                skinView.post {
-                    try {
-                        skinView.onResume()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "surfaceCreated:onResume suppressed: ${e.message}")
-                    }
-                    // pending があれば描画
-                    pendingBitmap?.let {
-                        safeRender(it)
-                        pendingBitmap = null
-                    }
-                }
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                Log.d(TAG, "surfaceChanged: ${width}x$height")
-            }
-
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                Log.d(TAG, "surfaceDestroyed")
-                surfaceReady = false
-                // pause も post して安全に
-                skinView.post {
-                    try {
-                        skinView.onPause()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "surfaceDestroyed:onPause suppressed: ${e.message}")
-                    }
-                }
-            }
-        })
 
         setupUI()
         checkLogin()
@@ -139,30 +94,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume called (activity)")
-        // surface が既に準備できている場合のみ呼ぶ（そうでない場合は surfaceCreated 側で呼ぶ）
-        if (surfaceReady) {
-            skinView.post {
-                try {
-                    skinView.onResume()
-                } catch (e: Exception) {
-                    Log.w(TAG, "onResume suppressed: ${e.message}")
-                }
-            }
-        } else {
-            Log.d(TAG, "onResume: surface not ready yet, skipping skinView.onResume()")
+        Log.d(TAG, "onResume called")
+        // Let GLSurfaceView manage its GLThread; call its lifecycle methods here.
+        try {
+            skinView.onResume()
+        } catch (e: Exception) {
+            Log.w(TAG, "skinView.onResume suppressed: ${e.message}")
+        }
+
+        // If there's a pending bitmap (loaded before GL ready), render it now.
+        pendingBitmap?.let {
+            safeRender(it)
         }
     }
 
     override fun onPause() {
-        Log.d(TAG, "onPause called (activity)")
-        // surfaceDestroyed 側でも pause するが念のため安全に
-        skinView.post {
-            try {
-                skinView.onPause()
-            } catch (e: Exception) {
-                Log.w(TAG, "onPause suppressed: ${e.message}")
-            }
+        Log.d(TAG, "onPause called")
+        // Pause GL first, then super
+        try {
+            skinView.onPause()
+        } catch (e: Exception) {
+            Log.w(TAG, "skinView.onPause suppressed: ${e.message}")
         }
         super.onPause()
     }
@@ -185,7 +137,6 @@ class MainActivity : AppCompatActivity() {
             skinVariant = newVariant
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
 
-            // 現在表示中のスキンがあればすぐに再描画（スリム/クラシック切替）
             currentSkinBitmap?.let {
                 pendingVariant = skinVariant
                 safeRender(it)
@@ -214,19 +165,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 起動時にアカウントスキンを取得して表示する（トークンがあれば）。
+     * ユーザーが選択済み (hasSelectedSkin==true) の場合はアカウントスキンを pending にしない。
+     */
     private fun loadAccountSkinOrTest() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
         if (token == null) {
-            loadFallbackSkin()
+            // no token -> fallback
+            pendingBitmap = createRedTestBitmap()
             return
         }
 
         scope.launch {
             try {
                 val conn = (URL("https://api.minecraftservices.com/minecraft/profile").openConnection() as HttpURLConnection)
+                conn.setRequestMethod("GET")
                 conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.requestMethod = "GET"
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 10_000
 
@@ -244,10 +200,8 @@ class MainActivity : AppCompatActivity() {
                         if (!hasSelectedSkin) pendingBitmap = scaled
 
                         withContext(Dispatchers.Main) {
-                            if (surfaceReady) {
-                                safeRender(if (hasSelectedSkin) currentSkinBitmap!! else scaled)
-                                pendingBitmap = null
-                            }
+                            // try to render now if GL ready (safeRender will post to skinView)
+                            safeRender(if (hasSelectedSkin) currentSkinBitmap!! else scaled)
                         }
                         conn.disconnect()
                         return@launch
@@ -258,38 +212,44 @@ class MainActivity : AppCompatActivity() {
                 Log.w(TAG, "loadAccountSkinOrTest failed: ${e.message}")
             }
 
-            withContext(Dispatchers.Main) { if (surfaceReady) loadFallbackSkin() else pendingBitmap = createRedTestBitmap() }
+            // fallback
+            withContext(Dispatchers.Main) {
+                pendingBitmap = createRedTestBitmap()
+                safeRender(pendingBitmap!!)
+            }
         }
-    }
-
-    private fun loadFallbackSkin() {
-        val bmp = createRedTestBitmap()
-        currentSkinBitmap = bmp
-        if (!hasSelectedSkin) pendingBitmap = bmp
-        if (surfaceReady) safeRender(bmp)
     }
 
     private fun createRedTestBitmap(): Bitmap {
         val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
         bmp.eraseColor(0xFFFF0000.toInt())
+        currentSkinBitmap = bmp
         return bmp
     }
 
+    /**
+     * 描画。skinView の GLThread に post して実行するので安全。
+     * GL がまだ初期化されていない場合は GLSurfaceView が自動的に処理することが多いが、
+     * 念のため pendingBitmap に保持して onResume 時に再描画する。
+     */
     private fun safeRender(bitmap: Bitmap) {
-        if (!surfaceReady) {
-            pendingBitmap = bitmap
-            return
-        }
-
-        skinView.post {
-            try {
-                applyVariant()
-                skinView.render(bitmap)
-                pendingBitmap = null
-                Log.d(TAG, "safeRender: success")
-            } catch (e: Exception) {
-                Log.e(TAG, "safeRender failed: ${e.message}")
+        // keep a pending copy so we can re-render after pause/resume if needed
+        pendingBitmap = bitmap
+        try {
+            skinView.post {
+                try {
+                    applyVariant()
+                    skinView.render(bitmap)
+                    // keep pendingBitmap so that if onPause/onResume happens we can reapply;
+                    // but clear the pending only if render didn't throw.
+                    pendingBitmap = null
+                    Log.d(TAG, "safeRender: success")
+                } catch (e: Exception) {
+                    Log.e(TAG, "safeRender failed: ${e.message}")
+                }
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "safeRender post suppressed: ${e.message}")
         }
     }
 
