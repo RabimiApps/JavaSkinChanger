@@ -232,22 +232,28 @@ class MainActivity : AppCompatActivity() {
      * GL がまだ初期化されていない場合は GLSurfaceView が自動的に処理することが多いが、
      * 念のため pendingBitmap に保持して onResume 時に再描画する。
      */
-    private fun safeRender(bitmap: Bitmap) {
+    // pendingBitmap と pendingVariant はクラス変数として保持
+private var pendingBitmap: Bitmap? = null
+private var pendingVariant: String? = null
+
+// 安全にレンダリング
+private fun safeRender(bitmap: Bitmap) {
     pendingBitmap = bitmap
+
     if (skinView == null) {
         Log.w(TAG, "safeRender postponed: skinView is null")
         return
     }
 
     skinView.post {
-        if (skinView == null) {
+        val view = skinView ?: run {
             Log.w(TAG, "safeRender suppressed: skinView became null")
             return@post
         }
 
         try {
             applyVariant()
-            skinView.render(bitmap)
+            view.render(bitmap)
             pendingBitmap = null
             Log.d(TAG, "safeRender: success")
         } catch (e: Exception) {
@@ -256,6 +262,7 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+// variant を安全に適用
 private fun applyVariant() {
     val view = skinView ?: run {
         Log.w(TAG, "applyVariant skipped: skinView is null")
@@ -274,6 +281,29 @@ private fun applyVariant() {
         Log.d(TAG, "applyVariant applied: $variant")
     } catch (e: Exception) {
         Log.w(TAG, "applyVariant failed: ${e.message}")
+    }
+}
+
+// onResume 内で pendingBitmap があれば自動再描画
+fun onResumeSafe() {
+    Log.d(TAG, "onResumeSafe called")
+    val view = skinView
+    if (view == null) {
+        Log.w(TAG, "onResumeSafe skipped: skinView is null")
+        return
+    }
+
+    try {
+        // GLSurfaceView の onResume を安全に呼ぶ
+        view.onResume()
+    } catch (e: Exception) {
+        Log.w(TAG, "skinView.onResume suppressed: ${e.message}")
+    }
+
+    // pendingBitmap があれば再描画
+    pendingBitmap?.let { bitmap ->
+        Log.d(TAG, "onResumeSafe: re-render pending bitmap")
+        safeRender(bitmap)
     }
 }
 
