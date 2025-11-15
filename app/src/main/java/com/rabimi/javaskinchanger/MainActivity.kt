@@ -233,37 +233,49 @@ class MainActivity : AppCompatActivity() {
      * 念のため pendingBitmap に保持して onResume 時に再描画する。
      */
     private fun safeRender(bitmap: Bitmap) {
-        // keep a pending copy so we can re-render after pause/resume if needed
-        pendingBitmap = bitmap
-        try {
-            skinView.post {
-                try {
-                    applyVariant()
-                    skinView.render(bitmap)
-                    // keep pendingBitmap so that if onPause/onResume happens we can reapply;
-                    // but clear the pending only if render didn't throw.
-                    pendingBitmap = null
-                    Log.d(TAG, "safeRender: success")
-                } catch (e: Exception) {
-                    Log.e(TAG, "safeRender failed: ${e.message}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "safeRender post suppressed: ${e.message}")
-        }
+    pendingBitmap = bitmap
+    if (skinView == null) {
+        Log.w(TAG, "safeRender postponed: skinView is null")
+        return
     }
 
-    private fun applyVariant() {
+    skinView.post {
+        if (skinView == null) {
+            Log.w(TAG, "safeRender suppressed: skinView became null")
+            return@post
+        }
+
         try {
-            val m = skinView.javaClass.getMethod("setVariant", String::class.java)
-            val toApply = pendingVariant ?: skinVariant
-            m.invoke(skinView, toApply)
-            pendingVariant = null
-            Log.d(TAG, "applyVariant applied: $toApply")
+            applyVariant()
+            skinView.render(bitmap)
+            pendingBitmap = null
+            Log.d(TAG, "safeRender: success")
         } catch (e: Exception) {
-            Log.w(TAG, "applyVariant failed: ${e.message}")
+            Log.e(TAG, "safeRender failed: ${e.message}")
         }
     }
+}
+
+private fun applyVariant() {
+    val view = skinView ?: run {
+        Log.w(TAG, "applyVariant skipped: skinView is null")
+        return
+    }
+
+    val variant = pendingVariant ?: skinVariant ?: run {
+        Log.w(TAG, "applyVariant skipped: variant is null")
+        return
+    }
+
+    try {
+        val m = view.javaClass.getMethod("setVariant", String::class.java)
+        m.invoke(view, variant)
+        pendingVariant = null
+        Log.d(TAG, "applyVariant applied: $variant")
+    } catch (e: Exception) {
+        Log.w(TAG, "applyVariant failed: ${e.message}")
+    }
+}
 
     private fun selectSkinImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
