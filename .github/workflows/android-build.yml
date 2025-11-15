@@ -88,3 +88,9 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           prerelease: true
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavaSkinChanger-debug
+          path: app/build/outputs/JavaSkinChanger-latest.apk
