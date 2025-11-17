@@ -89,8 +89,17 @@ jobs:
           replacesArtifacts: true
           prerelease: true
 
+      - name: archive
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v-${{ env.VERSION_CODE }}
+          name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
+          artifacts: output/JavaSkinChanger-latest.apk
+          allowUpdates: true
+          prerelease: true
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: JavaSkinChanger-debug
-          path: app/build/outputs/JavaSkinChanger-latest.apk
+          path: output/JavaSkinChanger-latest.apk
