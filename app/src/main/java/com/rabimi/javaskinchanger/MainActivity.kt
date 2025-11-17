@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -39,13 +38,9 @@ class MainActivity : AppCompatActivity() {
 
     private val REQUEST_SKIN_PICK = 1001
 
-    // 現在のスキン
     private var currentSkinBitmap: Bitmap? = null
-
-    // GLがまだ使えないときのための pending
     private var pendingBitmap: Bitmap? = null
     private var pendingVariant: String? = null
-
     private var hasSelectedSkin = false
     private var skinVariant: String = "classic"
 
@@ -53,7 +48,6 @@ class MainActivity : AppCompatActivity() {
     private val colorUploadTarget = 0xFF4CAF50.toInt()
     private val colorUploadInitial = 0xFFBDBDBD.toInt()
 
-    // coroutine scope
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,17 +65,6 @@ class MainActivity : AppCompatActivity() {
 
         val container = findViewById<FrameLayout>(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
-
-        try {
-            if (skinView is GLSurfaceView) {
-                val gl = skinView as GLSurfaceView
-                gl.setEGLContextClientVersion(2)
-                gl.setPreserveEGLContextOnPause(true)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "EGL setup skipped: ${e.message}")
-        }
-
         container.addView(
             skinView,
             FrameLayout.LayoutParams(
@@ -93,31 +76,6 @@ class MainActivity : AppCompatActivity() {
         setupUI()
         checkLogin()
         loadAccountSkinOrTest()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        Log.d(TAG, "onResume called")
-
-        try {
-            skinView.onResume()
-        } catch (e: Exception) {
-            Log.w(TAG, "skinView.onResume suppressed: ${e.message}")
-        }
-
-        pendingBitmap?.let {
-            safeRender(it)
-        }
-    }
-
-    override fun onPause() {
-        Log.d(TAG, "onPause called")
-        try {
-            skinView.onPause()
-        } catch (e: Exception) {
-            Log.w(TAG, "skinView.onPause suppressed: ${e.message}")
-        }
-        super.onPause()
     }
 
     override fun onDestroy() {
@@ -136,7 +94,6 @@ class MainActivity : AppCompatActivity() {
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             skinVariant = if (isChecked) "slim" else "classic"
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-
             currentSkinBitmap?.let {
                 pendingVariant = skinVariant
                 safeRender(it)
@@ -159,7 +116,6 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val username = prefs.getString("minecraft_username", null)
         val token = prefs.getString("minecraft_token", null)
-
         if (username == null || token == null) {
             startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
@@ -171,9 +127,9 @@ class MainActivity : AppCompatActivity() {
     private fun loadAccountSkinOrTest() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
-
         if (token == null) {
             pendingBitmap = createRedTestBitmap()
+            safeRender(pendingBitmap!!)
             return
         }
 
@@ -181,7 +137,6 @@ class MainActivity : AppCompatActivity() {
             try {
                 val conn = (URL("https://api.minecraftservices.com/minecraft/profile").openConnection()
                         as HttpURLConnection)
-
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("Authorization", "Bearer $token")
                 conn.connectTimeout = 10000
@@ -191,14 +146,13 @@ class MainActivity : AppCompatActivity() {
                     val body = conn.inputStream.bufferedReader().readText()
                     val json = JSONObject(body)
                     val skins = json.optJSONArray("skins")
-
                     if (skins != null && skins.length() > 0) {
                         val skinUrl = skins.getJSONObject(0).getString("url")
+                            .replace("http://", "https://")
                         val bmpStream = URL(skinUrl).openStream()
                         val bmp = BitmapFactory.decodeStream(bmpStream)
                         val scaled = Bitmap.createScaledBitmap(bmp, 64, 64, true)
                         currentSkinBitmap = scaled
-
                         if (!hasSelectedSkin) pendingBitmap = scaled
 
                         withContext(Dispatchers.Main) {
@@ -227,12 +181,8 @@ class MainActivity : AppCompatActivity() {
         return bmp
     }
 
-    // ==============================
-    // safeRender と applyVariant
-    // ==============================
     private fun safeRender(bitmap: Bitmap) {
         pendingBitmap = bitmap
-
         skinView.post {
             try {
                 applyVariant()
@@ -247,7 +197,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyVariant() {
         val variant = pendingVariant ?: skinVariant
-
         try {
             val m = skinView.javaClass.getMethod("setVariant", String::class.java)
             m.invoke(skinView, variant)
@@ -258,35 +207,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ==============================
-    // 画像選択
-    // ==============================
     private fun selectSkinImage() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "image/*"
-        }
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
         startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
     }
 
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
-
         if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
             val uri = data?.data ?: return
-
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                val bmp = Bitmap.createScaledBitmap(
-                    orig.copy(Bitmap.Config.ARGB_8888, true),
-                    64, 64,
-                    true
-                )
-
+                val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
                 currentSkinBitmap = bmp
                 pendingBitmap = bmp
                 hasSelectedSkin = true
                 safeRender(bmp)
-
                 btnUpload.visibility = View.VISIBLE
                 btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
             } catch (e: Exception) {
@@ -299,9 +235,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ==============================
-    // アップロード
-    // ==============================
     private fun handleUpload() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val token = prefs.getString("minecraft_token", null)
@@ -321,19 +254,16 @@ class MainActivity : AppCompatActivity() {
                 conn.requestMethod = "POST"
                 conn.doOutput = true
                 conn.setRequestProperty("Authorization", "Bearer $token")
-
                 val boundary = "----SkinBoundary-${System.currentTimeMillis()}"
                 conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
 
                 val os = DataOutputStream(conn.outputStream)
                 val line = "\r\n"
 
-                // variant
                 os.writeBytes("--$boundary$line")
                 os.writeBytes("Content-Disposition: form-data; name=\"variant\"$line$line")
                 os.writeBytes("$skinVariant$line")
 
-                // PNG file
                 os.writeBytes("--$boundary$line")
                 os.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$line")
                 os.writeBytes("Content-Type: image/png$line$line")
