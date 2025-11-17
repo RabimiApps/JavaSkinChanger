@@ -101,5 +101,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JavaSkinChanger-debug
+          name: JSC-APKZIP
           path: output/JavaSkinChanger-latest.apk
