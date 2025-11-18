@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         // --- SkinView 初期化 ---
         val container = findViewById<FrameLayout>(R.id.skinContainer)
         skinView = SkinView3DSurfaceView(this)
-        skinView.setEGLContextClientVersion(2)
+        skinView.setEGLContextClientVersion(3)
         skinView.setPreserveEGLContextOnPause(true)
 
         // SurfaceHolder.Callback で初期レンダリング対応
@@ -163,7 +163,7 @@ class MainActivity : AppCompatActivity() {
                     if (skins != null && skins.length() > 0) {
                         val skinUrl = skins.getJSONObject(0).getString("url")
                             .replace("http://", "https://")
-                        val stream = URL(skinUrl).openStream()
+                        val stream: InputStream = URL(skinUrl).openStream()
                         val bmp = BitmapFactory.decodeStream(stream)
                         val fixed = Bitmap.createScaledBitmap(bmp, 64, 64, true)
 
@@ -244,6 +244,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpload() {
-        // アップロード処理は既存コード通り
+        // アップロード処理は既存コード通りに実装可能
+        // ここで Microsoft OAuth トークンを使って multipart/form-data で送信
     }
 }
