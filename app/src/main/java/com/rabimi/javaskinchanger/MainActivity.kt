@@ -95,6 +95,20 @@ class MainActivity : AppCompatActivity() {
         skinView.post { loadAccountSkinOrTest() }
     }
 
+    override fun onResume() {
+        super.onResume()
+        skinView.onResume() // GLThread を再開
+        pendingBitmap?.let {
+            renderSafe(it)
+            pendingBitmap = null
+        }
+    }
+
+    override fun onPause() {
+        skinView.onPause() // GLThread を一時停止/破棄
+        super.onPause()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()
@@ -193,18 +207,14 @@ class MainActivity : AppCompatActivity() {
         return bmp
     }
 
+    // ✅ renderSafe を queueEvent に置き換え
     private fun renderSafe(bitmap: Bitmap) {
-        skinView.post {
+        skinView.queueEvent {
             try {
-                if (skinView.holder.surface.isValid) {
-                    skinView.render(bitmap)
-                    Log.d(TAG, "renderSafe: success")
-                } else {
-                    pendingBitmap = bitmap
-                    Log.d(TAG, "renderSafe: pending")
-                }
+                skinView.render(bitmap)
+                Log.d(TAG, "renderSafe: queued success")
             } catch (e: Exception) {
-                Log.e(TAG, "renderSafe failed: ${e.message}")
+                Log.e(TAG, "renderSafe (queueEvent) failed", e)
             }
         }
     }
@@ -244,7 +254,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpload() {
-        // アップロード処理は既存コード通りに実装可能
-        // ここで Microsoft OAuth トークンを使って multipart/form-data で送信
+        // 既存コード通りに実装可能
+        // switchModel に応じて model=slim/classic を multipart で追加する
     }
 }
