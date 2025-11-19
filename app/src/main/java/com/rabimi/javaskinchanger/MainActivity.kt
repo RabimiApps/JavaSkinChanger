@@ -1,5 +1,3 @@
-package com.rabimi.javaskinchanger
-
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -12,16 +10,17 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
-import com.badlogic.gdx.backends.android.AndroidGraphics
 import com.badlogic.gdx.backends.android.AndroidGraphicsView
 import kotlinx.coroutines.*
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
 
-class MainActivity : AppCompatActivity() {
+
+class MainActivity : AndroidApplication() {
 
     companion object { private const val TAG = "SkinDebug" }
 
@@ -33,9 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchModel: SwitchMaterial
     private lateinit var lblModel: TextView
 
-    private lateinit var gdxView: AndroidGraphicsView
     private lateinit var skinApp: Skin3DApp
-
     private val REQUEST_SKIN_PICK = 1001
     private var currentSkinBitmap: Bitmap? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,7 +43,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "onCreate called")
         setContentView(R.layout.activity_main)
 
         txtUsername = findViewById(R.id.txtUsername)
@@ -59,10 +55,9 @@ class MainActivity : AppCompatActivity() {
 
         // --- libGDX 初期化 ---
         val container = findViewById<FrameLayout>(R.id.skinContainer)
-        val config = AndroidApplicationConfiguration()
         skinApp = Skin3DApp()
-
-        gdxView = AndroidGraphicsView(this, skinApp, config)
+        val config = AndroidApplicationConfiguration()
+        val gdxView = initializeForView(skinApp, config)
         container.addView(
             gdxView,
             FrameLayout.LayoutParams(
@@ -73,24 +68,7 @@ class MainActivity : AppCompatActivity() {
 
         setupUI()
         checkLogin()
-
-        // アカウントスキンを読み込む
         loadAccountSkinOrTest()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        gdxView.onResume()
-    }
-
-    override fun onPause() {
-        gdxView.onPause()
-        super.onPause()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        scope.cancel()
     }
 
     private fun setupUI() {
@@ -131,7 +109,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadAccountSkinOrTest() {
-        // token チェックして Bitmap を取得 → skinApp.updateSkin(bitmap)
         val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
         bmp.eraseColor(0xFFFF0000.toInt())
         currentSkinBitmap = bmp
@@ -145,14 +122,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
-        if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
+        if (req == REQUEST_SKIN_PICK && res == RESULT_OK) {
             val uri = data?.data ?: return
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                val bmp = Bitmap.createScaledBitmap(
-                    orig.copy(Bitmap.Config.ARGB_8888, true),
-                    64, 64, true
-                )
+                val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
                 currentSkinBitmap = bmp
                 skinApp.updateSkin(bmp)
 
@@ -170,5 +144,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUpload() {
         // switchModel に応じて model=slim/classic を multipart で追加
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
     }
 }
