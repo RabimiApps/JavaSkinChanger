@@ -13,7 +13,6 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.badlogic.gdx.backends.android.AndroidApplication
-import com.badlogic.gdx.backends.android.AndroidGraphicsView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.*
 import org.json.JSONObject
@@ -131,19 +130,21 @@ class MainActivity : AndroidApplication() {
         }
     }
 
-    private fun fetchMinecraftSkin(token: String): Bitmap? {
-        return try {
+    private suspend fun fetchMinecraftSkin(token: String): Bitmap? = withContext(Dispatchers.IO) {
+        try {
             val url = URL("https://api.minecraftservices.com/minecraft/profile")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                setRequestProperty("Authorization", "Bearer $token")
+                connectTimeout = 10000
+                readTimeout = 10000
+            }
             val resp = conn.inputStream.bufferedReader().readText()
             val json = JSONObject(resp)
             val skinUrl = json.getJSONArray("skins").getJSONObject(0).getString("url")
-            val skinConn = URL(skinUrl).openConnection() as HttpURLConnection
-            skinConn.connectTimeout = 10000
-            skinConn.readTimeout = 10000
+            val skinConn = (URL(skinUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10000
+                readTimeout = 10000
+            }
             val bmp = BitmapFactory.decodeStream(skinConn.inputStream)
             Bitmap.createScaledBitmap(bmp, 64, 64, true)
         } catch (e: Exception) {
@@ -243,7 +244,7 @@ class MainActivity : AndroidApplication() {
             out.flush()
             out.close()
 
-            conn.inputStream.use { it.readBytes() } // 反応を無視して成功判定
+            conn.inputStream.use { it.readBytes() } // ignore response
             conn.responseCode in 200..299
         } catch (e: Exception) {
             e.printStackTrace()
