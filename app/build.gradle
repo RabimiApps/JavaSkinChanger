@@ -59,8 +59,13 @@ dependencies {
     // SkinViewAndroid (3Dスキン表示、もう使わない)
     implementation 'com.github.storeforminecraft:SkinViewAndroid:0.1.3'
 
-    implementation "com.badlogicgames.gdx:gdx:1.12.0"
-    implementation "com.badlogicgames.gdx:gdx-backend-android:1.12.0"
+    implementation 'com.badlogicgames.gdx:gdx:1.14.0'
+    implementation 'com.badlogicgames.gdx:gdx-backend-android:1.14.0'
+    implementation 'com.badlogicgames.gdx:gdx-platform:1.14.0:natives-armeabi'
+    implementation 'com.badlogicgames.gdx:gdx-platform:1.14.0:natives-armeabi-v7a'
+    implementation 'com.badlogicgames.gdx:gdx-platform:1.14.0:natives-arm64-v8a'
+    implementation 'com.badlogicgames.gdx:gdx-platform:1.14.0:natives-x86'
+    implementation 'com.badlogicgames.gdx:gdx-platform:1.14.0:natives-x86_64'
 
     // JSON パーサー（JSONObject 用）
     implementation 'org.json:json:20230227'
