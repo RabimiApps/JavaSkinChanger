@@ -55,7 +55,6 @@ class MainActivity : AndroidApplication() {
         lblModel = findViewById(R.id.lblModel)
         progressBar = findViewById(R.id.progressBar)
 
-        // --- libGDX 初期化 ---
         val container = findViewById<FrameLayout>(R.id.skinContainer)
         skinApp = Skin3DApp()
         val config = AndroidApplicationConfiguration()
@@ -75,6 +74,7 @@ class MainActivity : AndroidApplication() {
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
+            skinApp.setModelType(if (isChecked) "slim" else "classic")
             currentSkinBitmap?.let { skinApp.updateSkin(it) }
         }
 
@@ -113,15 +113,9 @@ class MainActivity : AndroidApplication() {
         scope.launch {
             val skinBitmap = fetchMinecraftSkin(mcToken)
             withContext(Dispatchers.Main) {
-                if (skinBitmap != null) {
-                    currentSkinBitmap = skinBitmap
-                    skinApp.updateSkin(skinBitmap)
-                } else {
-                    val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-                    bmp.eraseColor(0xFFFF0000.toInt())
-                    currentSkinBitmap = bmp
-                    skinApp.updateSkin(bmp)
-                }
+                val bmp = skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
+                currentSkinBitmap = bmp
+                skinApp.updateSkin(bmp)
             }
         }
     }
