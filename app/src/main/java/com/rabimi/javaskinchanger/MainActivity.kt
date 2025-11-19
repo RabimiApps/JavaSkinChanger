@@ -7,12 +7,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
-import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.badlogic.gdx.backends.android.AndroidApplication
+import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.*
 import org.json.JSONObject
@@ -109,10 +108,7 @@ class MainActivity : AndroidApplication() {
             return
         }
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val mcToken = prefs.getString("minecraft_token", null) ?: run {
-            Log.w(TAG, "Minecraft token not found")
-            return
-        }
+        val mcToken = prefs.getString("minecraft_token", null) ?: return
 
         scope.launch {
             val skinBitmap = fetchMinecraftSkin(mcToken)
@@ -130,21 +126,19 @@ class MainActivity : AndroidApplication() {
         }
     }
 
-    private suspend fun fetchMinecraftSkin(token: String): Bitmap? = withContext(Dispatchers.IO) {
-        try {
+    private fun fetchMinecraftSkin(token: String): Bitmap? {
+        return try {
             val url = URL("https://api.minecraftservices.com/minecraft/profile")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                setRequestProperty("Authorization", "Bearer $token")
-                connectTimeout = 10000
-                readTimeout = 10000
-            }
+            val conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
             val resp = conn.inputStream.bufferedReader().readText()
             val json = JSONObject(resp)
             val skinUrl = json.getJSONArray("skins").getJSONObject(0).getString("url")
-            val skinConn = (URL(skinUrl).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 10000
-                readTimeout = 10000
-            }
+            val skinConn = URL(skinUrl).openConnection() as HttpURLConnection
+            skinConn.connectTimeout = 10000
+            skinConn.readTimeout = 10000
             val bmp = BitmapFactory.decodeStream(skinConn.inputStream)
             Bitmap.createScaledBitmap(bmp, 64, 64, true)
         } catch (e: Exception) {
@@ -188,7 +182,6 @@ class MainActivity : AndroidApplication() {
 
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val mcToken = prefs.getString("minecraft_token", null) ?: return
-
         val modelType = if (switchModel.isChecked) "slim" else "classic"
 
         progressBar.visibility = View.VISIBLE
@@ -196,9 +189,7 @@ class MainActivity : AndroidApplication() {
 
         scope.launch {
             val success = uploadSkin(mcToken, bmp, modelType) { progress ->
-                withContext(Dispatchers.Main) {
-                    progressBar.progress = progress
-                }
+                withContext(Dispatchers.Main) { progressBar.progress = progress }
             }
             withContext(Dispatchers.Main) {
                 progressBar.visibility = View.GONE
@@ -230,7 +221,6 @@ class MainActivity : AndroidApplication() {
             bmp.compress(Bitmap.CompressFormat.PNG, 100, skinBytes)
             val byteArray = skinBytes.toByteArray()
             val chunkSize = byteArray.size / 100
-
             for (i in 0 until 100) {
                 val start = i * chunkSize
                 val end = if (i == 99) byteArray.size else (i + 1) * chunkSize
@@ -244,7 +234,7 @@ class MainActivity : AndroidApplication() {
             out.flush()
             out.close()
 
-            conn.inputStream.use { it.readBytes() } // ignore response
+            conn.inputStream.use { it.readBytes() }
             conn.responseCode in 200..299
         } catch (e: Exception) {
             e.printStackTrace()
