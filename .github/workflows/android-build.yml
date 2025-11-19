@@ -27,11 +27,12 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # 3. Gradle 9.0 セットアップ
-      - name: Set up Gradle 9.0
+      # 3. Gradle セットアップ
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
-        with:
-          gradle-version: 9.0
+　　　　- name: Gradle Wrapper Setup
+        run: gradle wrapper --gradle-version 9.0
+
 
       # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻 JST）
       - name: Generate version info
