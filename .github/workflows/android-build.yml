@@ -32,6 +32,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 9.0
+          distribution-type: all
 
       # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻 JST）
       - name: Generate version info
