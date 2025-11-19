@@ -30,9 +30,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Set up Gradle Wrapper
-        run: gradle wrapper --gradle-version 9.0
-
+      - name: Set up Gradle Wrapper 8.7
+        run: gradle wrapper --gradle-version 8.7
+      - name: update
+        run: ./gradlew wrapper --gradle-version 9.0
 
       # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻 JST）
       - name: Generate version info
