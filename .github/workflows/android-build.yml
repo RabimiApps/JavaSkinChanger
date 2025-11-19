@@ -1,4 +1,4 @@
-name: Android Build (Gradle 8.7)
+name: Android Build (Gradle 9.0)
 
 on:
   push:
@@ -29,11 +29,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: 9.2.1
 
-      - name: Set up Gradle Wrapper 8.7
-        run: gradle wrapper --gradle-version 8.7
-      - name: update
-        run: ./gradlew wrapper --gradle-version 9.0
 
       # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻 JST）
       - name: Generate version info
@@ -48,12 +46,10 @@ jobs:
           echo "Version name: $VERSION_NAME"
           echo "Version code: $VERSION_CODE"
 
-      - name: Gradlew実行許可
-        run: chmod +x ./gradlew
   
       # 6. Build Release APK 
       - name: Build Release APK
-        run: ./gradlew clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+        run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
       - name: Set up Android SDK Build Tools
         uses: android-actions/setup-android@v2
