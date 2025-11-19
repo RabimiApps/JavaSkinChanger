@@ -82,7 +82,7 @@ configurations.all {
         eachDependency { DependencyResolveDetails details ->
             if (details.requested.group == "androidx.core") {
                 if (details.requested.name == "core" || details.requested.name == "core-ktx") {
-                    details.useVersion "1.14.1"
+                    details.useVersion "1.15.0"
                 }
             }
         }
