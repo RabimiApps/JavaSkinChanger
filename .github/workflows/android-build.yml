@@ -29,10 +29,9 @@ jobs:
 
       # 3. Gradle 9.0 セットアップ
       - name: Set up Gradle 9.0
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: 9.0
-          distribution-type: all
 
       # 4. バージョン文字列とコード生成（ビルド番号＋日付時刻 JST）
       - name: Generate version info
