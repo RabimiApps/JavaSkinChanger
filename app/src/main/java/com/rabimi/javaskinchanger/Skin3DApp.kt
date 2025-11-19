@@ -22,17 +22,15 @@ class Skin3DApp : ApplicationAdapter() {
     private lateinit var camera: PerspectiveCamera
 
     private var pendingBitmap: AndroidBitmap? = null
-    private var currentModelType: String = "classic" // default Steve
+    private var currentModelType: String = "classic"
 
     override fun create() {
         modelBatch = ModelBatch()
 
-        // 環境ライト
         environment = Environment()
         environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0.8f, 0.8f, 0.8f, 1f))
         environment.add(DirectionalLight().set(1f, 1f, 1f, -1f, -0.8f, -0.2f))
 
-        // カメラ
         camera = PerspectiveCamera(67f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.position.set(0f, 1.5f, 3f)
         camera.lookAt(0f, 1f, 0f)
@@ -41,8 +39,6 @@ class Skin3DApp : ApplicationAdapter() {
         camera.update()
 
         buildModel()
-
-        // pendingBitmap があれば初期スキンとして反映
         pendingBitmap?.let { applyTexture(it) }
     }
 
@@ -56,23 +52,19 @@ class Skin3DApp : ApplicationAdapter() {
         modelBatch.end()
     }
 
-    /** MainActivity からスキンを更新 */
     fun updateSkin(bitmap: AndroidBitmap) {
         pendingBitmap = bitmap
         applyTexture(bitmap)
     }
 
-    /** MainActivity からモデルタイプを切り替え */
     fun setModelType(type: String) {
         if (type != "classic" && type != "slim") return
         if (currentModelType == type) return
         currentModelType = type
         buildModel()
-        // 既存テクスチャがあれば再適用
         pendingBitmap?.let { applyTexture(it) }
     }
 
-    /** Steve/Alex モデル生成 */
     private fun buildModel() {
         model?.dispose()
 
@@ -101,6 +93,7 @@ class Skin3DApp : ApplicationAdapter() {
                 pixmap.setPixel(x, bitmap.height - 1 - y, color)
             }
         }
+
         texture = Texture(pixmap)
         pixmap.dispose()
 
