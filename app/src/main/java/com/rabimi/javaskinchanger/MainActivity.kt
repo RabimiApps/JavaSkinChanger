@@ -1,6 +1,5 @@
 package com.rabimi.javaskinchanger
 
-import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -8,7 +7,6 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
-import android.view.SurfaceHolder
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
@@ -16,10 +14,10 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.switchmaterial.SwitchMaterial
-import dev.storeforminecraft.skinviewandroid.library.threedimension.ui.SkinView3DSurfaceView
+import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.badlogic.gdx.backends.android.AndroidGraphics
+import com.badlogic.gdx.backends.android.AndroidGraphicsView
 import kotlinx.coroutines.*
-import org.json.JSONObject
-import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -27,7 +25,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object { private const val TAG = "SkinDebug" }
 
-    private lateinit var skinView: SkinView3DSurfaceView
     private lateinit var txtUsername: TextView
     private lateinit var btnSelect: Button
     private lateinit var btnUpload: Button
@@ -36,17 +33,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchModel: SwitchMaterial
     private lateinit var lblModel: TextView
 
-    private val REQUEST_SKIN_PICK = 1001
+    private lateinit var gdxView: AndroidGraphicsView
+    private lateinit var skinApp: Skin3DApp
 
+    private val REQUEST_SKIN_PICK = 1001
     private var currentSkinBitmap: Bitmap? = null
-    private var pendingBitmap: Bitmap? = null
-    private var hasSelectedSkin = false
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val colorSelect = 0xFF4FC3F7.toInt()
     private val colorUploadTarget = 0xFF4CAF50.toInt()
     private val colorUploadInitial = 0xFFBDBDBD.toInt()
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,27 +57,14 @@ class MainActivity : AppCompatActivity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
 
-        // --- SkinView 初期化 ---
+        // --- libGDX 初期化 ---
         val container = findViewById<FrameLayout>(R.id.skinContainer)
-        skinView = SkinView3DSurfaceView(this)
-        skinView.setEGLContextClientVersion(3)
-        skinView.setPreserveEGLContextOnPause(true)
+        val config = AndroidApplicationConfiguration()
+        skinApp = Skin3DApp()
 
-        // SurfaceHolder.Callback で初期レンダリング対応
-        skinView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                pendingBitmap?.let {
-                    renderSafe(it)
-                    pendingBitmap = null
-                }
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-            override fun surfaceDestroyed(holder: SurfaceHolder) {}
-        })
-
+        gdxView = AndroidGraphicsView(this, skinApp, config)
         container.addView(
-            skinView,
+            gdxView,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -92,20 +75,16 @@ class MainActivity : AppCompatActivity() {
         checkLogin()
 
         // アカウントスキンを読み込む
-        skinView.post { loadAccountSkinOrTest() }
+        loadAccountSkinOrTest()
     }
 
     override fun onResume() {
         super.onResume()
-        skinView.onResume() // GLThread を再開
-        pendingBitmap?.let {
-            renderSafe(it)
-            pendingBitmap = null
-        }
+        gdxView.onResume()
     }
 
     override fun onPause() {
-        skinView.onPause() // GLThread を一時停止/破棄
+        gdxView.onPause()
         super.onPause()
     }
 
@@ -124,7 +103,7 @@ class MainActivity : AppCompatActivity() {
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-            currentSkinBitmap?.let { renderSafe(it) }
+            currentSkinBitmap?.let { skinApp.updateSkin(it) }
         }
 
         btnSelect.setOnClickListener { selectSkinImage() }
@@ -152,71 +131,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadAccountSkinOrTest() {
-        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val token = prefs.getString("minecraft_token", null)
-        if (token == null) {
-            val bmp = createRedTestBitmap()
-            renderSafe(bmp)
-            return
-        }
-
-        scope.launch {
-            try {
-                val conn = (URL("https://api.minecraftservices.com/minecraft/profile").openConnection()
-                        as HttpURLConnection)
-                conn.requestMethod = "GET"
-                conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.connectTimeout = 10000
-                conn.readTimeout = 10000
-
-                if (conn.responseCode == 200) {
-                    val json = JSONObject(conn.inputStream.bufferedReader().readText())
-                    conn.disconnect()
-
-                    val skins = json.optJSONArray("skins")
-                    if (skins != null && skins.length() > 0) {
-                        val skinUrl = skins.getJSONObject(0).getString("url")
-                            .replace("http://", "https://")
-                        val stream: InputStream = URL(skinUrl).openStream()
-                        val bmp = BitmapFactory.decodeStream(stream)
-                        val fixed = Bitmap.createScaledBitmap(bmp, 64, 64, true)
-
-                        currentSkinBitmap = fixed
-
-                        withContext(Dispatchers.Main) {
-                            renderSafe(fixed)
-                        }
-                        return@launch
-                    }
-                }
-
-            } catch (e: Exception) {
-                Log.w(TAG, "loadAccountSkinOrTest failed: ${e.message}")
-            }
-
-            withContext(Dispatchers.Main) {
-                renderSafe(createRedTestBitmap())
-            }
-        }
-    }
-
-    private fun createRedTestBitmap(): Bitmap {
+        // token チェックして Bitmap を取得 → skinApp.updateSkin(bitmap)
         val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
         bmp.eraseColor(0xFFFF0000.toInt())
         currentSkinBitmap = bmp
-        return bmp
-    }
-
-    // ✅ renderSafe を queueEvent に置き換え
-    private fun renderSafe(bitmap: Bitmap) {
-        skinView.queueEvent {
-            try {
-                skinView.render(bitmap)
-                Log.d(TAG, "renderSafe: queued success")
-            } catch (e: Exception) {
-                Log.e(TAG, "renderSafe (queueEvent) failed", e)
-            }
-        }
+        skinApp.updateSkin(bmp)
     }
 
     private fun selectSkinImage() {
@@ -234,15 +153,11 @@ class MainActivity : AppCompatActivity() {
                     orig.copy(Bitmap.Config.ARGB_8888, true),
                     64, 64, true
                 )
-
                 currentSkinBitmap = bmp
-                hasSelectedSkin = true
-
-                renderSafe(bmp)
+                skinApp.updateSkin(bmp)
 
                 btnUpload.visibility = View.VISIBLE
                 btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
-
             } catch (e: Exception) {
                 AlertDialog.Builder(this)
                     .setTitle("エラー")
@@ -254,7 +169,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpload() {
-        // 既存コード通りに実装可能
-        // switchModel に応じて model=slim/classic を multipart で追加する
+        // switchModel に応じて model=slim/classic を multipart で追加
     }
 }
