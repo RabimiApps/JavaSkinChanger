@@ -76,3 +76,15 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.6'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
+
+configurations.all {
+    resolutionStrategy {
+        eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == "androidx.core") {
+                if (details.requested.name == "core" || details.requested.name == "core-ktx") {
+                    details.useVersion "1.14.1"
+                }
+            }
+        }
+    }
+}
