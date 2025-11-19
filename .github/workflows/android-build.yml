@@ -47,12 +47,12 @@ jobs:
           echo "Version name: $VERSION_NAME"
           echo "Version code: $VERSION_CODE"
 
-      - name: poop
-        run: gradle :app:dependencies --configuration releaseRuntimeClasspath | grep "androidx.core"
+      - name: Gradlew実行許可
+        run: chmod +x ./gradlew
   
       # 6. Build Release APK 
       - name: Build Release APK
-        run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+        run: ./gradlew clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
       - name: Set up Android SDK Build Tools
         uses: android-actions/setup-android@v2
