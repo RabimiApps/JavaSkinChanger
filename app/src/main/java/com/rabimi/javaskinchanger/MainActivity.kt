@@ -1,5 +1,6 @@
 package com.rabimi.javaskinchanger
 
+import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -8,18 +9,18 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
-import android.widget.Button
-import android.widget.FrameLayout
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AlertDialog
-import com.google.android.material.switchmaterial.SwitchMaterial
-import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.badlogic.gdx.backends.android.AndroidApplication
+import com.badlogic.gdx.backends.android.AndroidGraphicsView
+import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.*
-import java.io.*
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import org.json.JSONObject
 
 class MainActivity : AndroidApplication() {
 
@@ -32,6 +33,7 @@ class MainActivity : AndroidApplication() {
     private lateinit var btnLogout: Button
     private lateinit var switchModel: SwitchMaterial
     private lateinit var lblModel: TextView
+    private lateinit var progressBar: ProgressBar
 
     private lateinit var skinApp: Skin3DApp
     private val REQUEST_SKIN_PICK = 1001
@@ -53,19 +55,14 @@ class MainActivity : AndroidApplication() {
         btnLogout = findViewById(R.id.btnLogout)
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
+        progressBar = findViewById(R.id.progressBar)
 
         // --- libGDX 初期化 ---
         val container = findViewById<FrameLayout>(R.id.skinContainer)
         skinApp = Skin3DApp()
         val config = AndroidApplicationConfiguration()
         val gdxView = initializeForView(skinApp, config)
-        container.addView(
-            gdxView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        )
+        container.addView(gdxView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
         setupUI()
         checkLogin()
@@ -74,11 +71,9 @@ class MainActivity : AndroidApplication() {
 
     private fun setupUI() {
         btnSelect.backgroundTintList = ColorStateList.valueOf(colorSelect)
-        btnSelect.text = "画像を選択"
-
-        btnUpload.visibility = View.GONE
         btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadInitial)
-        btnUpload.text = "アップロード"
+        btnUpload.visibility = View.GONE
+        progressBar.visibility = View.GONE
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
@@ -110,54 +105,50 @@ class MainActivity : AndroidApplication() {
     }
 
     private fun loadAccountSkinOrTest() {
+        if (currentSkinBitmap != null) {
+            skinApp.updateSkin(currentSkinBitmap!!)
+            return
+        }
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val token = prefs.getString("minecraft_token", null)
-
-        if (token == null) {
-            val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-            bmp.eraseColor(0xFFFF0000.toInt())
-            currentSkinBitmap = bmp
-            skinApp.updateSkin(bmp)
+        val mcToken = prefs.getString("minecraft_token", null) ?: run {
+            Log.w(TAG, "Minecraft token not found")
             return
         }
 
         scope.launch {
-            try {
-                val conn = (URL("https://api.minecraftservices.com/minecraft/profile").openConnection() as HttpURLConnection)
-                conn.requestMethod = "GET"
-                conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.connectTimeout = 10000
-                conn.readTimeout = 10000
-
-                if (conn.responseCode == 200) {
-                    val json = JSONObject(conn.inputStream.bufferedReader().readText())
-                    conn.disconnect()
-
-                    val skins = json.optJSONArray("skins")
-                    if (skins != null && skins.length() > 0) {
-                        val skinUrl = skins.getJSONObject(0).getString("url").replace("http://", "https://")
-                        val stream: InputStream = URL(skinUrl).openStream()
-                        val bmp = BitmapFactory.decodeStream(stream)
-                        val fixed = Bitmap.createScaledBitmap(bmp, 64, 64, true)
-
-                        currentSkinBitmap = fixed
-                        withContext(Dispatchers.Main) {
-                            skinApp.updateSkin(fixed)
-                        }
-                        return@launch
-                    }
-                }
-
-            } catch (e: Exception) {
-                Log.w(TAG, "loadAccountSkinOrTest failed: ${e.message}")
-            }
-
+            val skinBitmap = fetchMinecraftSkin(mcToken)
             withContext(Dispatchers.Main) {
-                val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-                bmp.eraseColor(0xFFFF0000.toInt())
-                currentSkinBitmap = bmp
-                skinApp.updateSkin(bmp)
+                if (skinBitmap != null) {
+                    currentSkinBitmap = skinBitmap
+                    skinApp.updateSkin(skinBitmap)
+                } else {
+                    val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+                    bmp.eraseColor(0xFFFF0000.toInt())
+                    currentSkinBitmap = bmp
+                    skinApp.updateSkin(bmp)
+                }
             }
+        }
+    }
+
+    private fun fetchMinecraftSkin(token: String): Bitmap? {
+        return try {
+            val url = URL("https://api.minecraftservices.com/minecraft/profile")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            val resp = conn.inputStream.bufferedReader().readText()
+            val json = JSONObject(resp)
+            val skinUrl = json.getJSONArray("skins").getJSONObject(0).getString("url")
+            val skinConn = URL(skinUrl).openConnection() as HttpURLConnection
+            skinConn.connectTimeout = 10000
+            skinConn.readTimeout = 10000
+            val bmp = BitmapFactory.decodeStream(skinConn.inputStream)
+            Bitmap.createScaledBitmap(bmp, 64, 64, true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 
@@ -168,11 +159,10 @@ class MainActivity : AndroidApplication() {
 
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
-        if (req == REQUEST_SKIN_PICK && res == RESULT_OK) {
+        if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
             val uri = data?.data ?: return
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                // 強制的に64x64にリサイズ
                 val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
                 currentSkinBitmap = bmp
                 skinApp.updateSkin(bmp)
@@ -190,74 +180,74 @@ class MainActivity : AndroidApplication() {
     }
 
     private fun handleUpload() {
+        val bmp = currentSkinBitmap ?: run {
+            Toast.makeText(this, "スキンが選択されていません", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val token = prefs.getString("minecraft_token", null) ?: return
+        val mcToken = prefs.getString("minecraft_token", null) ?: return
 
-        val bitmap = currentSkinBitmap ?: return
+        val modelType = if (switchModel.isChecked) "slim" else "classic"
+
+        progressBar.visibility = View.VISIBLE
+        progressBar.progress = 0
+
         scope.launch {
-            try {
-                // bitmap → PNG byte[]
-                val baos = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
-                val imageBytes = baos.toByteArray()
-
-                val modelType = if (switchModel.isChecked) "slim" else "classic"
-
-                val boundary = "*****" + System.currentTimeMillis()
-                val lineEnd = "\r\n"
-                val twoHyphens = "--"
-
-                val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.doInput = true
-                conn.doOutput = true
-                conn.useCaches = false
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=$boundary")
-
-                val outputStream = DataOutputStream(conn.outputStream)
-                outputStream.writeBytes(twoHyphens + boundary + lineEnd)
-                outputStream.writeBytes("Content-Disposition: form-data; name=\"model\"$lineEnd$lineEnd")
-                outputStream.writeBytes(modelType + lineEnd)
-                outputStream.writeBytes(twoHyphens + boundary + lineEnd)
-                outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$lineEnd")
-                outputStream.writeBytes("Content-Type: image/png$lineEnd$lineEnd")
-                outputStream.write(imageBytes)
-                outputStream.writeBytes(lineEnd)
-                outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd)
-                outputStream.flush()
-                outputStream.close()
-
-                val responseCode = conn.responseCode
-                val responseMessage = conn.inputStream.bufferedReader().readText()
-                conn.disconnect()
-
+            val success = uploadSkin(mcToken, bmp, modelType) { progress ->
                 withContext(Dispatchers.Main) {
-                    if (responseCode in 200..299) {
-                        btnUpload.backgroundTintList = ColorStateList.valueOf(0xFF8BC34A.toInt())
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("成功")
-                            .setMessage("スキンがアップロードされました")
-                            .setPositiveButton("OK", null)
-                            .show()
-                    } else {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("失敗")
-                            .setMessage("アップロード失敗: $responseCode\n$responseMessage")
-                            .setPositiveButton("OK", null)
-                            .show()
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("エラー")
-                        .setMessage("アップロード中にエラー: ${e.message}")
-                        .setPositiveButton("OK", null)
-                        .show()
+                    progressBar.progress = progress
                 }
             }
+            withContext(Dispatchers.Main) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, if (success) "アップロード完了" else "アップロード失敗", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun uploadSkin(token: String, bmp: Bitmap, model: String, onProgress: (Int) -> Unit): Boolean {
+        return try {
+            val boundary = "----RabimiSkinBoundary"
+            val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.doOutput = true
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+
+            val baos = ByteArrayOutputStream()
+            baos.write("--$boundary\r\n".toByteArray())
+            baos.write("Content-Disposition: form-data; name=\"model\"\r\n\r\n$model\r\n".toByteArray())
+            baos.write("--$boundary\r\n".toByteArray())
+            baos.write("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n".toByteArray())
+            baos.write("Content-Type: image/png\r\n\r\n".toByteArray())
+
+            val skinBytes = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, skinBytes)
+            val byteArray = skinBytes.toByteArray()
+            val chunkSize = byteArray.size / 100
+
+            for (i in 0 until 100) {
+                val start = i * chunkSize
+                val end = if (i == 99) byteArray.size else (i + 1) * chunkSize
+                baos.write(byteArray, start, end - start)
+                onProgress(i + 1)
+            }
+
+            baos.write("\r\n--$boundary--\r\n".toByteArray())
+            val out = DataOutputStream(conn.outputStream)
+            out.write(baos.toByteArray())
+            out.flush()
+            out.close()
+
+            conn.inputStream.use { it.readBytes() } // 反応を無視して成功判定
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 
