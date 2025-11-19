@@ -1,14 +1,17 @@
 package com.rabimi.javaskinchanger
 
-import com.badlogic.gdx.ApplicationAdapter
-import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.*
-import com.badlogic.gdx.graphics.g3d.*
+import com.badlogic.gdx.graphics.Pixmap
+import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g3d.Model
+import com.badlogic.gdx.graphics.g3d.ModelBatch
+import com.badlogic.gdx.graphics.g3d.ModelInstance
+import com.badlogic.gdx.graphics.g3d.Material
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
 import com.badlogic.gdx.graphics.g3d.environment.Environment
+import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
-import com.badlogic.gdx.graphics.g3d.utils.TextureProvider
-import com.badlogic.gdx.utils.Disposable
 import android.graphics.Bitmap as AndroidBitmap
 
 class Skin3DApp : ApplicationAdapter() {
