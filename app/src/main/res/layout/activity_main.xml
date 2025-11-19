@@ -109,4 +109,12 @@
         android:backgroundTint="#F44336"
         android:textAllCaps="false" />
 
+    <ProgressBar
+       android:id="@+id/progressBar"
+       style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Horizontal"
+       android:layout_width="match_parent"
+       android:layout_height="wrap_content"
+       android:layout_margin="12dp"
+       android:visibility="gone"/>
+
 </LinearLayout>
