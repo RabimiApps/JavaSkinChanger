@@ -47,7 +47,7 @@ jobs:
           echo "Version code: $VERSION_CODE"
 
       - name: poop
-        run: gradle :app:dependencies
+        run: gradle :app:dependencies --configuration releaseRuntimeClasspath | grep "androidx.core"
   
       # 6. Build Release APK 
       - name: Build Release APK
