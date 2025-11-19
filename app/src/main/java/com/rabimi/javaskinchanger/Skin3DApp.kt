@@ -90,7 +90,12 @@ class Skin3DApp : ApplicationAdapter() {
         for (y in 0 until bitmap.height) {
             for (x in 0 until bitmap.width) {
                 val color = pixels[x + y * bitmap.width]
-                pixmap.setPixel(x, bitmap.height - 1 - y, color)
+                val a = color ushr 24 and 0xFF
+                val r = color ushr 16 and 0xFF
+                val g = color ushr 8 and 0xFF
+                val b = color and 0xFF
+                val rgba = (r shl 24) or (g shl 16) or (b shl 8) or a
+                pixmap.setPixel(x, bitmap.height - 1 - y, rgba)
             }
         }
 
