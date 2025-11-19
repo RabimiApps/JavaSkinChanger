@@ -6,11 +6,11 @@ plugins {
 
 android {
     namespace 'com.rabimi.javaskinchanger'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.rabimi.javaskinchanger"
-        minSdk 24
+        minSdk 21
         targetSdk 34
 
         versionCode project.hasProperty("versionCode") ? project.versionCode.toInteger() : 1
@@ -42,8 +42,8 @@ android {
 }
 
 dependencies {
-    implementation ("androidx.core:core:1.12.0")
-    implementation ("androidx.core:core-ktx:1.12.0")
+    implementation ("androidx.core:core:1.15.0")
+    implementation ("androidx.core:core-ktx:1.15.0")
     implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "com.google.android.material:material:1.11.0"
     implementation "androidx.constraintlayout:constraintlayout:2.1.4"
