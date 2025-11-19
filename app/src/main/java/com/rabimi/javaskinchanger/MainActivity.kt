@@ -1,3 +1,5 @@
+package com.rabimi.javaskinchanger
+
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -11,14 +13,13 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
-import com.badlogic.gdx.backends.android.AndroidGraphicsView
 import kotlinx.coroutines.*
-import java.io.InputStream
+import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
-
 
 class MainActivity : AndroidApplication() {
 
@@ -109,10 +110,55 @@ class MainActivity : AndroidApplication() {
     }
 
     private fun loadAccountSkinOrTest() {
-        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-        bmp.eraseColor(0xFFFF0000.toInt())
-        currentSkinBitmap = bmp
-        skinApp.updateSkin(bmp)
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val token = prefs.getString("minecraft_token", null)
+
+        if (token == null) {
+            val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+            bmp.eraseColor(0xFFFF0000.toInt())
+            currentSkinBitmap = bmp
+            skinApp.updateSkin(bmp)
+            return
+        }
+
+        scope.launch {
+            try {
+                val conn = (URL("https://api.minecraftservices.com/minecraft/profile").openConnection() as HttpURLConnection)
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+
+                if (conn.responseCode == 200) {
+                    val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                    conn.disconnect()
+
+                    val skins = json.optJSONArray("skins")
+                    if (skins != null && skins.length() > 0) {
+                        val skinUrl = skins.getJSONObject(0).getString("url").replace("http://", "https://")
+                        val stream: InputStream = URL(skinUrl).openStream()
+                        val bmp = BitmapFactory.decodeStream(stream)
+                        val fixed = Bitmap.createScaledBitmap(bmp, 64, 64, true)
+
+                        currentSkinBitmap = fixed
+                        withContext(Dispatchers.Main) {
+                            skinApp.updateSkin(fixed)
+                        }
+                        return@launch
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.w(TAG, "loadAccountSkinOrTest failed: ${e.message}")
+            }
+
+            withContext(Dispatchers.Main) {
+                val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+                bmp.eraseColor(0xFFFF0000.toInt())
+                currentSkinBitmap = bmp
+                skinApp.updateSkin(bmp)
+            }
+        }
     }
 
     private fun selectSkinImage() {
@@ -126,6 +172,7 @@ class MainActivity : AndroidApplication() {
             val uri = data?.data ?: return
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                // 強制的に64x64にリサイズ
                 val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
                 currentSkinBitmap = bmp
                 skinApp.updateSkin(bmp)
@@ -143,7 +190,75 @@ class MainActivity : AndroidApplication() {
     }
 
     private fun handleUpload() {
-        // switchModel に応じて model=slim/classic を multipart で追加
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val token = prefs.getString("minecraft_token", null) ?: return
+
+        val bitmap = currentSkinBitmap ?: return
+        scope.launch {
+            try {
+                // bitmap → PNG byte[]
+                val baos = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+                val imageBytes = baos.toByteArray()
+
+                val modelType = if (switchModel.isChecked) "slim" else "classic"
+
+                val boundary = "*****" + System.currentTimeMillis()
+                val lineEnd = "\r\n"
+                val twoHyphens = "--"
+
+                val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.doInput = true
+                conn.doOutput = true
+                conn.useCaches = false
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=$boundary")
+
+                val outputStream = DataOutputStream(conn.outputStream)
+                outputStream.writeBytes(twoHyphens + boundary + lineEnd)
+                outputStream.writeBytes("Content-Disposition: form-data; name=\"model\"$lineEnd$lineEnd")
+                outputStream.writeBytes(modelType + lineEnd)
+                outputStream.writeBytes(twoHyphens + boundary + lineEnd)
+                outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"$lineEnd")
+                outputStream.writeBytes("Content-Type: image/png$lineEnd$lineEnd")
+                outputStream.write(imageBytes)
+                outputStream.writeBytes(lineEnd)
+                outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd)
+                outputStream.flush()
+                outputStream.close()
+
+                val responseCode = conn.responseCode
+                val responseMessage = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+
+                withContext(Dispatchers.Main) {
+                    if (responseCode in 200..299) {
+                        btnUpload.backgroundTintList = ColorStateList.valueOf(0xFF8BC34A.toInt())
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("成功")
+                            .setMessage("スキンがアップロードされました")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    } else {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("失敗")
+                            .setMessage("アップロード失敗: $responseCode\n$responseMessage")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("エラー")
+                        .setMessage("アップロード中にエラー: ${e.message}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
