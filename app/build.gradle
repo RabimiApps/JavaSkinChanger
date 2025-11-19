@@ -56,8 +56,11 @@ dependencies {
     // AppAuth for OAuth2
     implementation "net.openid:appauth:0.11.1"
 
-    // SkinViewAndroid (3Dスキン表示)
+    // SkinViewAndroid (3Dスキン表示、もう使わない)
     implementation 'com.github.storeforminecraft:SkinViewAndroid:0.1.3'
+
+    implementation "com.badlogicgames.gdx:gdx:1.12.0"
+    implementation "com.badlogicgames.gdx:gdx-backend-android:1.12.0"
 
     // JSON パーサー（JSONObject 用）
     implementation 'org.json:json:20230227'
