@@ -45,8 +45,11 @@ jobs:
           echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
           echo "Version name: $VERSION_NAME"
           echo "Version code: $VERSION_CODE"
+
+      - name: poop
+        run: gradle :app:dependencies
   
-      # 6. Build Release APK (キャッシュ有効)
+      # 6. Build Release APK 
       - name: Build Release APK
         run: gradle clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
 
