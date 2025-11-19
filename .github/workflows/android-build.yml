@@ -27,10 +27,10 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # 3. Gradle セットアップ
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
-　　　　- name: Gradle Wrapper Setup
+
+      - name: Set up Gradle Wrapper
         run: gradle wrapper --gradle-version 9.0
 
 
