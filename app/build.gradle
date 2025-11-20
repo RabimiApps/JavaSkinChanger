@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.rabimi.javaskinchanger'
-    compileSdk 35
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.rabimi.javaskinchanger"
