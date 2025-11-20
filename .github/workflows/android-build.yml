@@ -102,4 +102,4 @@ jobs:
           path: output/JavaSkinChanger-latest.apk
      
       - name: g
-        run: unzip -l output/JavaSkinChanger.apk | grep libgdx.so
+        run: unzip -l output/JavaSkinChanger-latest.apk | grep libgdx.so
