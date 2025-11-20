@@ -20,7 +20,6 @@ android {
 
         manifestPlaceholders = [appAuthRedirectScheme: "javaskinchanger"]
 
-        // libGDX natives を確実に含める
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
@@ -41,21 +40,23 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = '17'
+    kotlinOptions { 
+        jvmTarget = '17' 
+    }
+
+    // ここで .so の競合を防ぎつつ必ず APK に入れる
+    packagingOptions {
+        pickFirst "**/*.so"
     }
 }
 
 dependencies {
-    // AndroidX
     implementation "androidx.core:core:1.15.0"
     implementation "androidx.core:core-ktx:1.15.0"
     implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "com.google.android.material:material:1.11.0"
     implementation "androidx.constraintlayout:constraintlayout:2.1.4"
     implementation "androidx.browser:browser:1.6.0"
-
-    // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.0"
 
     // Glide
@@ -65,35 +66,25 @@ dependencies {
     // AppAuth
     implementation "net.openid:appauth:0.11.1"
 
-    // SkinViewAndroid（残すだけ）
+    // SkinViewAndroid (非推奨、残してもOK)
     implementation 'com.github.storeforminecraft:SkinViewAndroid:0.1.3'
 
-    // ==============================
-    // 🚀 libGDX（順番が超重要）
-    // ==============================
-
-    // core
+    // libGDX core
     implementation "com.badlogicgames.gdx:gdx:1.12.0"
-
-    // backend（core のすぐ後）
     implementation "com.badlogicgames.gdx:gdx-backend-android:1.12.0"
 
-    // natives（backend の直後）
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-arm64-v8a"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-armeabi-v7a"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-x86"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-x86_64"
+    // libGDX natives (runtimeOnly に変更)
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-armeabi-v7a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-arm64-v8a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-x86"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-x86_64"
 
-    // freetype
-    implementation "com.badlogicgames.gdx:gdx-freetype:1.12.0"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-armeabi-v7a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-arm64-v8a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-x86"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-x86_64"
 
-    // freetype natives（順番重要）
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-arm64-v8a"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-armeabi-v7a"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-x86"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-x86_64"
-
-    // Tests
+    // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.6'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
