@@ -1,32 +1,26 @@
 package com.rabimi.javaskinchanger
 
-import com.badlogic.gdx.graphics.g3d.Environment
-import com.badlogic.gdx.graphics.g3d.ModelBatch
-import com.badlogic.gdx.graphics.g3d.RenderableProvider
-import com.badlogic.gdx.graphics.g3d.Shader
-import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
-import com.badlogic.gdx.graphics.Pixmap
-import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g3d.Material
-import com.badlogic.gdx.graphics.g3d.Model
-import com.badlogic.gdx.graphics.g3d.ModelBatch
-import com.badlogic.gdx.graphics.g3d.ModelInstance
-import com.badlogic.gdx.graphics.g3d.RenderableProvider
-import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute
-import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
-import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
-import com.badlogic.gdx.graphics.g3d.environment.Environment
-import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.graphics.PerspectiveCamera
 import com.badlogic.gdx.graphics.VertexAttributes
+import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g3d.Environment
+import com.badlogic.gdx.graphics.g3d.Model
+import com.badlogic.gdx.graphics.g3d.ModelInstance
+import com.badlogic.gdx.graphics.g3d.ModelBatch as GdxModelBatch
+import com.badlogic.gdx.graphics.g3d.RenderableProvider
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
+import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
+import com.badlogic.gdx.graphics.Pixmap as GdxPixmap
 import android.graphics.Bitmap as AndroidBitmap
 
 class Skin3DApp : ApplicationAdapter() {
 
-    private lateinit var modelBatch: ModelBatch
+    private lateinit var modelBatch: GdxModelBatch
     private lateinit var environment: Environment
     private lateinit var camera: PerspectiveCamera
 
@@ -45,25 +39,23 @@ class Skin3DApp : ApplicationAdapter() {
     private var rightLegInstance: ModelInstance? = null
 
     private var texture: Texture? = null
-
     private var pendingBitmap: AndroidBitmap? = null
     private var currentModelType: String = "classic"
-
     private var angle = 0f
 
     override fun create() {
-        modelBatch = ModelBatch()
-
-        environment = Environment()
-        environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0.8f, 0.8f, 0.8f, 1f))
-        environment.add(DirectionalLight().set(1f, 1f, 1f, -0.5f, -1f, -0.3f))
-
-        camera = PerspectiveCamera(67f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-        camera.position.set(0f, 1.5f, 4f)
-        camera.lookAt(0f, 1f, 0f)
-        camera.near = 0.1f
-        camera.far = 100f
-        camera.update()
+        modelBatch = GdxModelBatch()
+        environment = Environment().apply {
+            set(ColorAttribute(ColorAttribute.AmbientLight, 0.8f, 0.8f, 0.8f, 1f))
+            add(DirectionalLight().set(1f, 1f, 1f, -0.5f, -1f, -0.3f))
+        }
+        camera = PerspectiveCamera(67f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat()).apply {
+            position.set(0f, 1.5f, 4f)
+            lookAt(0f, 1f, 0f)
+            near = 0.1f
+            far = 100f
+            update()
+        }
 
         buildAllParts()
         pendingBitmap?.let { applyTexture(it) }
@@ -85,13 +77,8 @@ class Skin3DApp : ApplicationAdapter() {
         rightLegInstance?.transform?.set(rotationY)?.translate(0.25f, -0.8f, 0f)
 
         modelBatch.begin(camera)
-        // 明示的に RenderableProvider 型を渡してオーバーロードの曖昧さを排除
-        headInstance?.let { modelBatch.render(it as RenderableProvider, environment) }
-        bodyInstance?.let { modelBatch.render(it as RenderableProvider, environment) }
-        leftArmInstance?.let { modelBatch.render(it as RenderableProvider, environment) }
-        rightArmInstance?.let { modelBatch.render(it as RenderableProvider, environment) }
-        leftLegInstance?.let { modelBatch.render(it as RenderableProvider, environment) }
-        rightLegInstance?.let { modelBatch.render(it as RenderableProvider, environment) }
+        listOf(headInstance, bodyInstance, leftArmInstance, rightArmInstance, leftLegInstance, rightLegInstance)
+            .forEach { it?.let { mi -> modelBatch.render(mi as RenderableProvider, environment) } }
         modelBatch.end()
     }
 
@@ -109,14 +96,15 @@ class Skin3DApp : ApplicationAdapter() {
 
     private fun buildAllParts() {
         disposeModels()
-        val baseMaterial = Material()
-        headModel = createBoxModel(0.8f, 0.8f, 0.8f, baseMaterial); headInstance = ModelInstance(headModel)
-        bodyModel = createBoxModel(0.8f, 1.2f, 0.4f, baseMaterial); bodyInstance = ModelInstance(bodyModel)
+        val baseMaterial = com.badlogic.gdx.graphics.g3d.Material()
         val armWidth = if (currentModelType == "slim") 0.3f else 0.4f
-        leftArmModel = createBoxModel(armWidth, 1.2f, 0.4f, baseMaterial); leftArmInstance = ModelInstance(leftArmModel)
-        rightArmModel = createBoxModel(armWidth, 1.2f, 0.4f, baseMaterial); rightArmInstance = ModelInstance(rightArmModel)
-        leftLegModel = createBoxModel(0.4f, 1.2f, 0.4f, baseMaterial); leftLegInstance = ModelInstance(leftLegModel)
-        rightLegModel = createBoxModel(0.4f, 1.2f, 0.4f, baseMaterial); rightLegInstance = ModelInstance(rightLegModel)
+
+        headModel = createBoxModel(0.8f, 0.8f, 0.8f, baseMaterial).also { headInstance = ModelInstance(it) }
+        bodyModel = createBoxModel(0.8f, 1.2f, 0.4f, baseMaterial).also { bodyInstance = ModelInstance(it) }
+        leftArmModel = createBoxModel(armWidth, 1.2f, 0.4f, baseMaterial).also { leftArmInstance = ModelInstance(it) }
+        rightArmModel = createBoxModel(armWidth, 1.2f, 0.4f, baseMaterial).also { rightArmInstance = ModelInstance(it) }
+        leftLegModel = createBoxModel(0.4f, 1.2f, 0.4f, baseMaterial).also { leftLegInstance = ModelInstance(it) }
+        rightLegModel = createBoxModel(0.4f, 1.2f, 0.4f, baseMaterial).also { rightLegInstance = ModelInstance(it) }
 
         headInstance?.transform?.idt()?.translate(0f, 1.6f, 0f)
         bodyInstance?.transform?.idt()?.translate(0f, 0.8f, 0f)
@@ -129,10 +117,10 @@ class Skin3DApp : ApplicationAdapter() {
     private fun rebuildPartsKeepTexture() {
         val keptTexture = texture
         buildAllParts()
-        if (keptTexture != null) applyTextureToModels(keptTexture)
+        keptTexture?.let { applyTextureToModels(it) }
     }
 
-    private fun createBoxModel(width: Float, height: Float, depth: Float, material: Material): Model {
+    private fun createBoxModel(width: Float, height: Float, depth: Float, material: com.badlogic.gdx.graphics.g3d.Material): Model {
         val mb = ModelBuilder()
         val attr = (VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong()
         return mb.createBox(width, height, depth, material, attr)
@@ -140,19 +128,15 @@ class Skin3DApp : ApplicationAdapter() {
 
     private fun applyTextureToModels(tex: Texture) {
         val ta = TextureAttribute.createDiffuse(tex)
-        headModel?.materials?.firstOrNull()?.set(ta)
-        bodyModel?.materials?.firstOrNull()?.set(ta)
-        leftArmModel?.materials?.firstOrNull()?.set(ta)
-        rightArmModel?.materials?.firstOrNull()?.set(ta)
-        leftLegModel?.materials?.firstOrNull()?.set(ta)
-        rightLegModel?.materials?.firstOrNull()?.set(ta)
+        listOf(headModel, bodyModel, leftArmModel, rightArmModel, leftLegModel, rightLegModel)
+            .forEach { it?.materials?.firstOrNull()?.set(ta) }
     }
 
     private fun applyTexture(bitmap: AndroidBitmap) {
         texture?.dispose()
         val w = bitmap.width
         val h = bitmap.height
-        val pixmap = Pixmap(w, h, Pixmap.Format.RGBA8888)
+        val pixmap = GdxPixmap(w, h, GdxPixmap.Format.RGBA8888)
         val pixels = IntArray(w * h)
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
 
@@ -163,7 +147,7 @@ class Skin3DApp : ApplicationAdapter() {
                 val a = (color ushr 24) and 0xFF
                 val r = (color ushr 16) and 0xFF
                 val g = (color ushr 8) and 0xFF
-                val b = (color) and 0xFF
+                val b = color and 0xFF
                 val rgba = (r shl 24) or (g shl 16) or (b shl 8) or a
                 pixmap.setPixel(x, h - 1 - y, rgba)
             }
@@ -175,12 +159,22 @@ class Skin3DApp : ApplicationAdapter() {
     }
 
     private fun disposeModels() {
-        headModel?.dispose(); headModel = null; headInstance = null
-        bodyModel?.dispose(); bodyModel = null; bodyInstance = null
-        leftArmModel?.dispose(); leftArmModel = null; leftArmInstance = null
-        rightArmModel?.dispose(); rightArmModel = null; rightArmInstance = null
-        leftLegModel?.dispose(); leftLegModel = null; leftLegInstance = null
-        rightLegModel?.dispose(); rightLegModel = null; rightLegInstance = null
+        listOf(
+            headModel to headInstance,
+            bodyModel to bodyInstance,
+            leftArmModel to leftArmInstance,
+            rightArmModel to rightArmInstance,
+            leftLegModel to leftLegInstance,
+            rightLegModel to rightLegInstance
+        ).forEach { (model, instance) ->
+            model?.dispose()
+        }
+        headModel = null; headInstance = null
+        bodyModel = null; bodyInstance = null
+        leftArmModel = null; leftArmInstance = null
+        rightArmModel = null; rightArmInstance = null
+        leftLegModel = null; leftLegInstance = null
+        rightLegModel = null; rightLegInstance = null
     }
 
     override fun dispose() {
