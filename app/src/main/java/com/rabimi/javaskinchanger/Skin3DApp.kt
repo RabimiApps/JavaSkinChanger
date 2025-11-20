@@ -1,5 +1,10 @@
 package com.rabimi.javaskinchanger
 
+import com.badlogic.gdx.graphics.g3d.Environment
+import com.badlogic.gdx.graphics.g3d.ModelBatch
+import com.badlogic.gdx.graphics.g3d.RenderableProvider
+import com.badlogic.gdx.graphics.g3d.Shader
+import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
