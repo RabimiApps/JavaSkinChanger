@@ -140,16 +140,15 @@ class Skin3DApp : ApplicationAdapter() {
         val pixels = IntArray(w * h)
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
 
-        var idx = 0
         for (y in 0 until h) {
             for (x in 0 until w) {
-                val color = pixels[idx++]
+                val color = pixels[x + y * w]
                 val a = (color ushr 24) and 0xFF
                 val r = (color ushr 16) and 0xFF
                 val g = (color ushr 8) and 0xFF
                 val b = color and 0xFF
                 val rgba = (r shl 24) or (g shl 16) or (b shl 8) or a
-                pixmap.setPixel(x, h - 1 - y, rgba)
+                pixmap.drawPixel(x, h - 1 - y, rgba) // ← 修正ポイント
             }
         }
 
@@ -166,9 +165,8 @@ class Skin3DApp : ApplicationAdapter() {
             rightArmModel to rightArmInstance,
             leftLegModel to leftLegInstance,
             rightLegModel to rightLegInstance
-        ).forEach { (model, instance) ->
-            model?.dispose()
-        }
+        ).forEach { (model, _) -> model?.dispose() }
+
         headModel = null; headInstance = null
         bodyModel = null; bodyInstance = null
         leftArmModel = null; leftArmInstance = null
