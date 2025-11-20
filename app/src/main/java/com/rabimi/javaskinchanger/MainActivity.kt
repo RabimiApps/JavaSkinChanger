@@ -36,7 +36,7 @@ class MainActivity : AndroidApplication() {
     private lateinit var skinApp: Skin3DApp
     private val REQUEST_SKIN_PICK = 1001
     private var currentSkinBitmap: Bitmap? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main) // UI を使うことが多いので Main をベースにする
 
     private val colorSelect = 0xFF4FC3F7.toInt()
     private val colorUploadTarget = 0xFF4CAF50.toInt()
@@ -103,37 +103,46 @@ class MainActivity : AndroidApplication() {
     }
 
     private fun loadAccountSkinOrTest() {
+        // すでに選ばれているスキンがあればそれを優先
         if (currentSkinBitmap != null) {
             skinApp.updateSkin(currentSkinBitmap!!)
             return
         }
+
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val mcToken = prefs.getString("minecraft_token", null) ?: return
 
+        // Coroutine 内でネットワーク IO を行う（fetchMinecraftSkin は suspend）
         scope.launch {
-            val skinBitmap = fetchMinecraftSkin(mcToken)
-            withContext(Dispatchers.Main) {
-                val bmp = skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
-                currentSkinBitmap = bmp
-                skinApp.updateSkin(bmp)
-            }
+            val skinBitmap = fetchMinecraftSkin(mcToken) // suspend safe
+            val bmp = skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
+            currentSkinBitmap = bmp
+            skinApp.updateSkin(bmp)
         }
     }
 
-    private fun fetchMinecraftSkin(token: String): Bitmap? {
-        return try {
+    // suspend にして IO スレッドで安全に動くようにする
+    private suspend fun fetchMinecraftSkin(token: String): Bitmap? = withContext(Dispatchers.IO) {
+        try {
             val url = URL("https://api.minecraftservices.com/minecraft/profile")
             val conn = url.openConnection() as HttpURLConnection
             conn.setRequestProperty("Authorization", "Bearer $token")
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
-            val resp = conn.inputStream.bufferedReader().readText()
+
+            val resp = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(resp)
-            val skinUrl = json.getJSONArray("skins").getJSONObject(0).getString("url")
+
+            // JSON の構造が変わる可能性があるので安全に取り出す
+            val skins = json.optJSONArray("skins")
+            if (skins == null || skins.length() == 0) return@withContext null
+            val skinUrl = skins.getJSONObject(0).optString("url", null) ?: return@withContext null
+
             val skinConn = URL(skinUrl).openConnection() as HttpURLConnection
             skinConn.connectTimeout = 10000
             skinConn.readTimeout = 10000
-            val bmp = BitmapFactory.decodeStream(skinConn.inputStream)
+            val bmp = BitmapFactory.decodeStream(skinConn.inputStream) ?: return@withContext null
+
             Bitmap.createScaledBitmap(bmp, 64, 64, true)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -159,6 +168,7 @@ class MainActivity : AndroidApplication() {
                 btnUpload.visibility = View.VISIBLE
                 btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
             } catch (e: Exception) {
+                e.printStackTrace()
                 AlertDialog.Builder(this)
                     .setTitle("エラー")
                     .setMessage("スキンの読み込みに失敗しました: ${e.message}")
@@ -181,10 +191,13 @@ class MainActivity : AndroidApplication() {
         progressBar.visibility = View.VISIBLE
         progressBar.progress = 0
 
+        // uploadSkin は suspend なので coroutine 内で呼ぶ
         scope.launch {
             val success = uploadSkin(mcToken, bmp, modelType) { progress ->
+                // プログレスは UI スレッドで更新
                 withContext(Dispatchers.Main) { progressBar.progress = progress }
             }
+
             withContext(Dispatchers.Main) {
                 progressBar.visibility = View.GONE
                 Toast.makeText(this@MainActivity, if (success) "アップロード完了" else "アップロード失敗", Toast.LENGTH_SHORT).show()
@@ -192,49 +205,60 @@ class MainActivity : AndroidApplication() {
         }
     }
 
-    private fun uploadSkin(token: String, bmp: Bitmap, model: String, onProgress: (Int) -> Unit): Boolean {
-        return try {
-            val boundary = "----RabimiSkinBoundary"
-            val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.doOutput = true
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            conn.connectTimeout = 15000
-            conn.readTimeout = 15000
+    // suspend 化して IO で実行するようにした（進捗コールバックは保持）
+    private suspend fun uploadSkin(token: String, bmp: Bitmap, model: String, onProgress: (Int) -> Unit): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val boundary = "----RabimiSkinBoundary"
+                val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.doOutput = true
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
 
-            val baos = ByteArrayOutputStream()
-            baos.write("--$boundary\r\n".toByteArray())
-            baos.write("Content-Disposition: form-data; name=\"model\"\r\n\r\n$model\r\n".toByteArray())
-            baos.write("--$boundary\r\n".toByteArray())
-            baos.write("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n".toByteArray())
-            baos.write("Content-Type: image/png\r\n\r\n".toByteArray())
+                val baos = ByteArrayOutputStream()
+                baos.write("--$boundary\r\n".toByteArray())
+                baos.write("Content-Disposition: form-data; name=\"model\"\r\n\r\n$model\r\n".toByteArray())
+                baos.write("--$boundary\r\n".toByteArray())
+                baos.write("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n".toByteArray())
+                baos.write("Content-Type: image/png\r\n\r\n".toByteArray())
 
-            val skinBytes = ByteArrayOutputStream()
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, skinBytes)
-            val byteArray = skinBytes.toByteArray()
-            val chunkSize = byteArray.size / 100
-            for (i in 0 until 100) {
-                val start = i * chunkSize
-                val end = if (i == 99) byteArray.size else (i + 1) * chunkSize
-                baos.write(byteArray, start, end - start)
-                onProgress(i + 1)
+                val skinBytes = ByteArrayOutputStream()
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, skinBytes)
+                val byteArray = skinBytes.toByteArray()
+                val chunkSize = if (byteArray.size >= 100) byteArray.size / 100 else byteArray.size
+
+                if (chunkSize <= 0) {
+                    baos.write(byteArray)
+                    onProgress(100)
+                } else {
+                    for (i in 0 until 100) {
+                        val start = i * chunkSize
+                        val end = if (i == 99) byteArray.size else (i + 1) * chunkSize
+                        if (start >= byteArray.size) break
+                        baos.write(byteArray, start, end - start)
+                        onProgress(i + 1)
+                    }
+                }
+
+                baos.write("\r\n--$boundary--\r\n".toByteArray())
+                val out = DataOutputStream(conn.outputStream)
+                out.write(baos.toByteArray())
+                out.flush()
+                out.close()
+
+                // 応答を読みつつ終了コードを確認
+                conn.inputStream.use { it.readBytes() }
+                val rc = conn.responseCode
+                rc in 200..299
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
             }
-
-            baos.write("\r\n--$boundary--\r\n".toByteArray())
-            val out = DataOutputStream(conn.outputStream)
-            out.write(baos.toByteArray())
-            out.flush()
-            out.close()
-
-            conn.inputStream.use { it.readBytes() }
-            conn.responseCode in 200..299
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
         }
-    }
 
     override fun onDestroy() {
         super.onDestroy()
