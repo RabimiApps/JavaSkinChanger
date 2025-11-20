@@ -194,9 +194,14 @@ class MainActivity : AndroidApplication() {
         // uploadSkin は suspend なので coroutine 内で呼ぶ
         scope.launch {
             val success = uploadSkin(mcToken, bmp, modelType) { progress ->
-                // プログレスは UI スレッドで更新
-                withContext(Dispatchers.Main) { progressBar.progress = progress }
-            }
+                // MainScope なので直接 UI 更新して OK
+                progressBar.progress = progress
+           }
+
+         progressBar.visibility = View.GONE
+         Toast.makeText(this@MainActivity, if (success) "アップロード完了" else "アップロード失敗", Toast.LENGTH_SHORT).show()
+    }
+
 
             withContext(Dispatchers.Main) {
                 progressBar.visibility = View.GONE
