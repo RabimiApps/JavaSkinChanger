@@ -8,14 +8,11 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <!-- SkinView を追加するコンテナ -->
-    <FrameLayout
-        android:id="@+id/skinContainer"
+    <ImageView
+        android:id="@+id/imgSkin"
         android:layout_width="match_parent"
-        android:layout_height="320dp"
-        android:layout_marginBottom="12dp"
-        android:background="#F5F5F5">
-    </FrameLayout>
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter" />
 
     <!-- ユーザー名 -->
     <TextView
