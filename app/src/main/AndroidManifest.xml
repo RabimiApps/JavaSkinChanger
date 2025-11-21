@@ -9,8 +9,12 @@
         android:label="test"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"
-        android:hardwareAccelerated="true"> <!-- 追加 -->
- 
+        android:hardwareAccelerated="true">
+
+        <!-- メイン画面 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"> <!-- ランチャーとして起動するので true -->
 
             <!-- ランチャーとして起動 -->
             <intent-filter>
@@ -27,12 +31,6 @@
             </intent-filter>
 
         </activity>
-
-        <!-- メイン画面 -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
-
 
     </application>
 
