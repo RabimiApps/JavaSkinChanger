@@ -44,6 +44,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // UI 接続
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -52,7 +53,7 @@ class MainActivity : Activity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
         progressBar = findViewById(R.id.progressBar)
-        skinView = findViewById(R.id.imgSkin) // ← ここを ImageView に修正
+        skinView = findViewById(R.id.imgSkin) // ImageView に接続
 
         setupUI()
         checkLogin()
@@ -65,9 +66,9 @@ class MainActivity : Activity() {
         btnUpload.visibility = View.GONE
         progressBar.visibility = View.GONE
 
+        // モデル切替（ラベルのみ変更、画像は同じ）
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-            currentSkinBitmap?.let { skinView.setImageBitmap(it) }
         }
 
         btnSelect.setOnClickListener { selectSkinImage() }
