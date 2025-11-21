@@ -10,12 +10,7 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"
         android:hardwareAccelerated="true"> <!-- 追加 -->
-
-        <!-- 起動画面 -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTask"> 
+ 
 
             <!-- ランチャーとして起動 -->
             <intent-filter>
