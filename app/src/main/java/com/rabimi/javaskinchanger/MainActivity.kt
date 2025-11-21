@@ -1,6 +1,5 @@
 package com.rabimi.javaskinchanger
 
-import com.rabimi.javaskinchanger.render.Skin3DApp
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -11,8 +10,6 @@ import android.provider.MediaStore
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
-import com.badlogic.gdx.backends.android.AndroidApplication
-import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.*
 import org.json.JSONObject
@@ -21,7 +18,7 @@ import java.io.DataOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-class MainActivity : AndroidApplication() {
+class MainActivity : Activity() {
 
     companion object { private const val TAG = "SkinDebug" }
 
@@ -33,11 +30,11 @@ class MainActivity : AndroidApplication() {
     private lateinit var switchModel: SwitchMaterial
     private lateinit var lblModel: TextView
     private lateinit var progressBar: ProgressBar
+    private lateinit var skinView: ImageView
 
-    private lateinit var skinApp: Skin3DApp
     private val REQUEST_SKIN_PICK = 1001
     private var currentSkinBitmap: Bitmap? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main) // UI を使うことが多いので Main をベースにする
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val colorSelect = 0xFF4FC3F7.toInt()
     private val colorUploadTarget = 0xFF4CAF50.toInt()
@@ -55,12 +52,7 @@ class MainActivity : AndroidApplication() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
         progressBar = findViewById(R.id.progressBar)
-
-        val container = findViewById<FrameLayout>(R.id.skinContainer)
-        skinApp = Skin3DApp()
-        val config = AndroidApplicationConfiguration()
-        val gdxView = initializeForView(skinApp, config)
-        container.addView(gdxView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        skinView = findViewById(R.id.imgSkin) // ← ここを ImageView に修正
 
         setupUI()
         checkLogin()
@@ -75,8 +67,7 @@ class MainActivity : AndroidApplication() {
 
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
-            skinApp.setModelType(if (isChecked) "slim" else "classic")
-            currentSkinBitmap?.let { skinApp.updateSkin(it) }
+            currentSkinBitmap?.let { skinView.setImageBitmap(it) }
         }
 
         btnSelect.setOnClickListener { selectSkinImage() }
@@ -104,25 +95,22 @@ class MainActivity : AndroidApplication() {
     }
 
     private fun loadAccountSkinOrTest() {
-        // すでに選ばれているスキンがあればそれを優先
         if (currentSkinBitmap != null) {
-            skinApp.updateSkin(currentSkinBitmap!!)
+            skinView.setImageBitmap(currentSkinBitmap)
             return
         }
 
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val mcToken = prefs.getString("minecraft_token", null) ?: return
 
-        // Coroutine 内でネットワーク IO を行う（fetchMinecraftSkin は suspend）
         scope.launch {
-            val skinBitmap = fetchMinecraftSkin(mcToken) // suspend safe
+            val skinBitmap = fetchMinecraftSkin(mcToken)
             val bmp = skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
             currentSkinBitmap = bmp
-            skinApp.updateSkin(bmp)
+            skinView.setImageBitmap(bmp)
         }
     }
 
-    // suspend にして IO スレッドで安全に動くようにする
     private suspend fun fetchMinecraftSkin(token: String): Bitmap? = withContext(Dispatchers.IO) {
         try {
             val url = URL("https://api.minecraftservices.com/minecraft/profile")
@@ -134,9 +122,8 @@ class MainActivity : AndroidApplication() {
             val resp = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(resp)
 
-            // JSON の構造が変わる可能性があるので安全に取り出す
-            val skins = json.optJSONArray("skins")
-            if (skins == null || skins.length() == 0) return@withContext null
+            val skins = json.optJSONArray("skins") ?: return@withContext null
+            if (skins.length() == 0) return@withContext null
             val skinUrl = skins.getJSONObject(0).optString("url", null) ?: return@withContext null
 
             val skinConn = URL(skinUrl).openConnection() as HttpURLConnection
@@ -164,7 +151,7 @@ class MainActivity : AndroidApplication() {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                 val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
                 currentSkinBitmap = bmp
-                skinApp.updateSkin(bmp)
+                skinView.setImageBitmap(bmp)
 
                 btnUpload.visibility = View.VISIBLE
                 btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
@@ -192,25 +179,18 @@ class MainActivity : AndroidApplication() {
         progressBar.visibility = View.VISIBLE
         progressBar.progress = 0
 
-        // uploadSkin は suspend なので coroutine 内で呼ぶ
         scope.launch {
             val success = uploadSkin(mcToken, bmp, modelType) { progress ->
-                // MainScope なので直接 UI 更新可能
                 progressBar.progress = progress
             }
 
-            // アップロード完了/失敗の処理
             progressBar.visibility = View.GONE
-            Toast.makeText(
-                this@MainActivity,
+            Toast.makeText(this@MainActivity,
                 if (success) "アップロード完了" else "アップロード失敗",
-                Toast.LENGTH_SHORT
-            ).show()
+                Toast.LENGTH_SHORT).show()
         }
     }
 
-
-    // suspend 化して IO で実行するようにした（進捗コールバックは保持）
     private suspend fun uploadSkin(token: String, bmp: Bitmap, model: String, onProgress: (Int) -> Unit): Boolean =
         withContext(Dispatchers.IO) {
             try {
@@ -255,7 +235,6 @@ class MainActivity : AndroidApplication() {
                 out.flush()
                 out.close()
 
-                // 応答を読みつつ終了コードを確認
                 conn.inputStream.use { it.readBytes() }
                 val rc = conn.responseCode
                 rc in 200..299
