@@ -28,7 +28,7 @@ jobs:
   
       # 6. Build Release APK 
       - name: Build Release APK
-        run: ./gradlew clean assembleRelease --refresh-dependencies -PversionName=${{ env.VERSION_NAME }} -PversionCode=${{ env.VERSION_CODE }}
+        run: ./gradlew clean assembleDebug --refresh-dependencies
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
