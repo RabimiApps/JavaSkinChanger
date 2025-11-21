@@ -69,16 +69,16 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx-backend-android:1.12.0"
 
     // libGDX ネイティブライブラリ (APKに確実に含める)
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-armeabi-v7a"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-arm64-v8a"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-x86"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-x86_64"
+    implementation "com.badlogicgames.gdx:gdx-platform:1.9.14:natives-armeabi-v7a"
+    implementation "com.badlogicgames.gdx:gdx-platform:1.9.14:natives-arm64-v8a"
+    implementation "com.badlogicgames.gdx:gdx-platform:1.9.14:natives-x86"
+    implementation "com.badlogicgames.gdx:gdx-platform:1.9.14:natives-x86_64"
 
-    implementation "com.badlogicgames.gdx:gdx-freetype:1.12.0"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-armeabi-v7a"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-arm64-v8a"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-x86"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-x86_64"
+    implementation "com.badlogicgames.gdx:gdx-freetype:1.9.14"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.9.14:natives-armeabi-v7a"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.9.14:natives-arm64-v8a"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.9.14:natives-x86"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.9.14:natives-x86_64"
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
