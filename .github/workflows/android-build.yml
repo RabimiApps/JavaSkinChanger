@@ -100,6 +100,9 @@ jobs:
         with:
           name: JSC-APKZIP
           path: output/JavaSkinChanger-latest.apk
-     
-      - name: g
-        run: unzip -l output/JavaSkinChanger-latest.apk | grep libgdx.so
+          
+      - name: List all native libs
+        run: unzip -l output/JavaSkinChanger-latest.apk | grep "\.so" || true && unzip -l output/JavaSkinChanger-latest.apk | grep gdx || true && unzip -l output/JavaSkinChanger-latest.apk | grep libgdx.so || true
+
+
+
