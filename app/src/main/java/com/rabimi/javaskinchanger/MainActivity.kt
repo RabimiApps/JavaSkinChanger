@@ -53,7 +53,7 @@ class MainActivity : Activity() {
         switchModel = findViewById(R.id.switchModel)
         lblModel = findViewById(R.id.lblModel)
         progressBar = findViewById(R.id.progressBar)
-        skinView = findViewById(R.id.imgSkin) // ImageView に接続
+        skinView = findViewById(R.id.imgSkin)
 
         setupUI()
         checkLogin()
@@ -66,7 +66,6 @@ class MainActivity : Activity() {
         btnUpload.visibility = View.GONE
         progressBar.visibility = View.GONE
 
-        // モデル切替（ラベルのみ変更、画像は同じ）
         switchModel.setOnCheckedChangeListener { _, isChecked ->
             lblModel.text = if (isChecked) "モデル: Alex" else "モデル: Steve"
         }
@@ -106,7 +105,7 @@ class MainActivity : Activity() {
 
         scope.launch {
             val skinBitmap = fetchMinecraftSkin(mcToken)
-            val bmp = skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
+            val bmp = resizeTo64(skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) })
             currentSkinBitmap = bmp
             skinView.setImageBitmap(bmp)
         }
@@ -132,11 +131,15 @@ class MainActivity : Activity() {
             skinConn.readTimeout = 10000
             val bmp = BitmapFactory.decodeStream(skinConn.inputStream) ?: return@withContext null
 
-            Bitmap.createScaledBitmap(bmp, 64, 64, true)
+            resizeTo64(bmp)
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
+    }
+
+    private fun resizeTo64(bitmap: Bitmap): Bitmap {
+        return Bitmap.createScaledBitmap(bitmap.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
     }
 
     private fun selectSkinImage() {
@@ -150,7 +153,7 @@ class MainActivity : Activity() {
             val uri = data?.data ?: return
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                val bmp = Bitmap.createScaledBitmap(orig.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
+                val bmp = resizeTo64(orig)
                 currentSkinBitmap = bmp
                 skinView.setImageBitmap(bmp)
 
