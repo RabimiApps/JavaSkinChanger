@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "JavaSkinChanger"
-include(":app")
+rootProject.name = "SkinViewAndroidTest"
+include(":app")_
