@@ -20,9 +20,6 @@ android {
 
         manifestPlaceholders = [appAuthRedirectScheme: "skinviewandroidtest"]
 
-        ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-        }
     }
 
     buildTypes {
@@ -40,9 +37,6 @@ android {
 
     kotlinOptions { jvmTarget = '17' }
 
-    packagingOptions {
-        pickFirst "**/*.so"
-    }
 }
 
 dependencies {
