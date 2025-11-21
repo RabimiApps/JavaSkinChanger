@@ -44,7 +44,6 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // UI 接続
         txtUsername = findViewById(R.id.txtUsername)
         btnSelect = findViewById(R.id.btnSelect)
         btnUpload = findViewById(R.id.btnUpload)
@@ -105,7 +104,10 @@ class MainActivity : Activity() {
 
         scope.launch {
             val skinBitmap = fetchMinecraftSkin(mcToken)
-            val bmp = resizeTo64(skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) })
+            val bmp = resizeTo64(
+                skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+                    .apply { eraseColor(0xFFFF0000.toInt()) }
+            )
             currentSkinBitmap = bmp
             skinView.setImageBitmap(bmp)
         }
@@ -189,64 +191,72 @@ class MainActivity : Activity() {
             }
 
             progressBar.visibility = View.GONE
-            Toast.makeText(this@MainActivity,
+            Toast.makeText(
+                this@MainActivity,
                 if (success) "アップロード完了" else "アップロード失敗",
-                Toast.LENGTH_SHORT).show()
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
-    private suspend fun uploadSkin(token: String, bmp: Bitmap, model: String, onProgress: (Int) -> Unit): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                val boundary = "----RabimiSkinBoundary"
-                val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.doOutput = true
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
+    private suspend fun uploadSkin(
+        token: String,
+        bmp: Bitmap,
+        model: String, // slim / classic
+        onProgress: (Int) -> Unit
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val boundary = "----RabimiSkinBoundary"
+            val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.doOutput = true
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
 
-                val baos = ByteArrayOutputStream()
-                baos.write("--$boundary\r\n".toByteArray())
-                baos.write("Content-Disposition: form-data; name=\"model\"\r\n\r\n$model\r\n".toByteArray())
-                baos.write("--$boundary\r\n".toByteArray())
-                baos.write("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n".toByteArray())
-                baos.write("Content-Type: image/png\r\n\r\n".toByteArray())
+            val out = DataOutputStream(conn.outputStream)
 
-                val skinBytes = ByteArrayOutputStream()
-                bmp.compress(Bitmap.CompressFormat.PNG, 100, skinBytes)
-                val byteArray = skinBytes.toByteArray()
-                val chunkSize = if (byteArray.size >= 100) byteArray.size / 100 else byteArray.size
+            // 正式なキーは "variant"
+            out.writeBytes("--$boundary\r\n")
+            out.writeBytes("Content-Disposition: form-data; name=\"variant\"\r\n\r\n")
+            out.writeBytes("$model\r\n")
 
-                if (chunkSize <= 0) {
-                    baos.write(byteArray)
-                    onProgress(100)
-                } else {
-                    for (i in 0 until 100) {
-                        val start = i * chunkSize
-                        val end = if (i == 99) byteArray.size else (i + 1) * chunkSize
-                        if (start >= byteArray.size) break
-                        baos.write(byteArray, start, end - start)
-                        onProgress(i + 1)
-                    }
+            // PNG ファイルのアップロード
+            out.writeBytes("--$boundary\r\n")
+            out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n")
+            out.writeBytes("Content-Type: image/png\r\n\r\n")
+
+            val pngBaos = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, pngBaos)
+            val bytes = pngBaos.toByteArray()
+
+            val chunk = if (bytes.size >= 100) bytes.size / 100 else bytes.size
+            if (chunk <= 0) {
+                out.write(bytes)
+                onProgress(100)
+            } else {
+                for (i in 0 until 100) {
+                    val start = i * chunk
+                    val end = if (i == 99) bytes.size else (i + 1) * chunk
+                    if (start >= bytes.size) break
+                    out.write(bytes, start, end - start)
+                    onProgress(i + 1)
                 }
-
-                baos.write("\r\n--$boundary--\r\n".toByteArray())
-                val out = DataOutputStream(conn.outputStream)
-                out.write(baos.toByteArray())
-                out.flush()
-                out.close()
-
-                conn.inputStream.use { it.readBytes() }
-                val rc = conn.responseCode
-                rc in 200..299
-            } catch (e: Exception) {
-                e.printStackTrace()
-                false
             }
+
+            out.writeBytes("\r\n--$boundary--\r\n")
+            out.flush()
+            out.close()
+
+            val rc = conn.responseCode
+            rc in 200..299
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
