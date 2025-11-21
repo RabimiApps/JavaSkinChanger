@@ -1,5 +1,6 @@
 package com.rabimi.javaskinchanger
 
+import com.rabimi.javaskinchanger.render.Skin3DApp
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
