@@ -6,7 +6,7 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.PerspectiveCamera
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.TextureRegion
+import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.g3d.*
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute
@@ -26,7 +26,6 @@ class Skin3DApp : ApplicationListener {
     private var skinTexture: Texture? = null
 
     override fun create() {
-
         // camera
         camera = PerspectiveCamera(67f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.position.set(0f, 1.6f, 3f)
@@ -43,7 +42,7 @@ class Skin3DApp : ApplicationListener {
 
         batch = ModelBatch()
 
-        // 最初はダミーテクスチャ（灰色）でOK
+        // 最初はダミーテクスチャ（灰色）
         val pix = com.badlogic.gdx.graphics.Pixmap(64, 64, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888)
         pix.setColor(0.5f, 0.5f, 0.5f, 1f)
         pix.fill()
@@ -94,16 +93,15 @@ class Skin3DApp : ApplicationListener {
             // 1. 前のテクスチャ破棄
             skinTexture?.dispose()
 
-            // 2. Bitmap → Texture に変換
-            val pixmap = com.badlogic.gdx.graphics.Pixmap(
-                bitmap.width,
-                bitmap.height,
-                com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888
-            )
-            val bb = java.nio.ByteBuffer.allocate(bitmap.byteCount)
-            bitmap.copyPixelsToBuffer(bb)
-            bb.rewind()
-            pixmap.setPixels(bb)
+            // 2. Bitmap → Pixmap に変換
+            val pixmap = com.badlogic.gdx.graphics.Pixmap(bitmap.width, bitmap.height, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888)
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            for (y in 0 until bitmap.height) {
+                for (x in 0 until bitmap.width) {
+                    pixmap.drawPixel(x, y, pixels[y * bitmap.width + x])
+                }
+            }
 
             skinTexture = Texture(pixmap)
             pixmap.dispose()
