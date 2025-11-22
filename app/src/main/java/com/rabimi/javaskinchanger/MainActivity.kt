@@ -12,7 +12,6 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.*
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.net.HttpURLConnection
@@ -56,7 +55,19 @@ class MainActivity : Activity() {
 
         setupUI()
         checkLogin()
-        loadAccountSkinOrTest()
+
+        // ☆ 初期スキンを steve.png に強制
+        loadDefaultSteveSkin()
+    }
+
+    /** res/raw/steve.png のビットマップを読み込んで表示する */
+    private fun loadDefaultSteveSkin() {
+        val input = resources.openRawResource(R.raw.steve)
+        val bmp = BitmapFactory.decodeStream(input)
+        val resized = resizeTo64(bmp)
+
+        currentSkinBitmap = resized
+        skinView.setImageBitmap(resized)
     }
 
     private fun setupUI() {
@@ -71,9 +82,11 @@ class MainActivity : Activity() {
 
         btnSelect.setOnClickListener { selectSkinImage() }
         btnUpload.setOnClickListener { handleUpload() }
+
         btnLibrary.setOnClickListener {
             AlertDialog.Builder(this).setMessage("未実装").setPositiveButton("OK", null).show()
         }
+
         btnLogout.setOnClickListener {
             getSharedPreferences("prefs", MODE_PRIVATE).edit().clear().apply()
             startActivity(Intent(this, WelcomeActivity::class.java))
@@ -93,74 +106,28 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun loadAccountSkinOrTest() {
-        if (currentSkinBitmap != null) {
-            skinView.setImageBitmap(currentSkinBitmap)
-            return
-        }
-
-        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
-        val mcToken = prefs.getString("minecraft_token", null) ?: return
-
-        scope.launch {
-            val skinBitmap = fetchMinecraftSkin(mcToken)
-            val bmp = resizeTo64(
-                skinBitmap ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-                    .apply { eraseColor(0xFFFF0000.toInt()) }
-            )
-            currentSkinBitmap = bmp
-            skinView.setImageBitmap(bmp)
-        }
-    }
-
-    private suspend fun fetchMinecraftSkin(token: String): Bitmap? = withContext(Dispatchers.IO) {
-        try {
-            val url = URL("https://api.minecraftservices.com/minecraft/profile")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-
-            val resp = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = JSONObject(resp)
-
-            val skins = json.optJSONArray("skins") ?: return@withContext null
-            if (skins.length() == 0) return@withContext null
-            val skinUrl = skins.getJSONObject(0).optString("url", null) ?: return@withContext null
-
-            val skinConn = URL(skinUrl).openConnection() as HttpURLConnection
-            skinConn.connectTimeout = 10000
-            skinConn.readTimeout = 10000
-            val bmp = BitmapFactory.decodeStream(skinConn.inputStream) ?: return@withContext null
-
-            resizeTo64(bmp)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun resizeTo64(bitmap: Bitmap): Bitmap {
-        return Bitmap.createScaledBitmap(bitmap.copy(Bitmap.Config.ARGB_8888, true), 64, 64, true)
-    }
-
+    /** ファイル選択 */
     private fun selectSkinImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
         startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
     }
 
+    /** 選択後即プレビュー */
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
         if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
             val uri = data?.data ?: return
+
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                 val bmp = resizeTo64(orig)
+
                 currentSkinBitmap = bmp
                 skinView.setImageBitmap(bmp)
 
                 btnUpload.visibility = View.VISIBLE
                 btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
+
             } catch (e: Exception) {
                 e.printStackTrace()
                 AlertDialog.Builder(this)
@@ -172,6 +139,16 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun resizeTo64(bitmap: Bitmap): Bitmap {
+        return Bitmap.createScaledBitmap(
+            bitmap.copy(Bitmap.Config.ARGB_8888, true),
+            64,
+            64,
+            true
+        )
+    }
+
+    /** アップロード */
     private fun handleUpload() {
         val bmp = currentSkinBitmap ?: run {
             Toast.makeText(this, "スキンが選択されていません", Toast.LENGTH_SHORT).show()
@@ -186,29 +163,31 @@ class MainActivity : Activity() {
         progressBar.progress = 0
 
         scope.launch {
-            val success = uploadSkin(mcToken, bmp, modelType) { progress ->
+            val ok = uploadSkin(mcToken, bmp, modelType) { progress ->
                 progressBar.progress = progress
             }
 
             progressBar.visibility = View.GONE
             Toast.makeText(
                 this@MainActivity,
-                if (success) "アップロード完了" else "アップロード失敗",
+                if (ok) "アップロード完了" else "アップロード失敗",
                 Toast.LENGTH_SHORT
             ).show()
         }
     }
 
+    /** アップロード本体 */
     private suspend fun uploadSkin(
         token: String,
         bmp: Bitmap,
-        model: String, // slim / classic
+        model: String,
         onProgress: (Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val boundary = "----RabimiSkinBoundary"
             val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
             val conn = url.openConnection() as HttpURLConnection
+
             conn.doOutput = true
             conn.requestMethod = "POST"
             conn.setRequestProperty("Authorization", "Bearer $token")
@@ -218,12 +197,10 @@ class MainActivity : Activity() {
 
             val out = DataOutputStream(conn.outputStream)
 
-            // 正式なキーは "variant"
             out.writeBytes("--$boundary\r\n")
             out.writeBytes("Content-Disposition: form-data; name=\"variant\"\r\n\r\n")
             out.writeBytes("$model\r\n")
 
-            // PNG ファイルのアップロード
             out.writeBytes("--$boundary\r\n")
             out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n")
             out.writeBytes("Content-Type: image/png\r\n\r\n")
@@ -252,6 +229,7 @@ class MainActivity : Activity() {
 
             val rc = conn.responseCode
             rc in 200..299
+
         } catch (e: Exception) {
             e.printStackTrace()
             false
