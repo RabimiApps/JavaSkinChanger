@@ -6,11 +6,10 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ImageButton
+import android.view.*
 import android.widget.ImageView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -20,62 +19,102 @@ import java.io.FileOutputStream
 class SkinLibraryActivity : AppCompatActivity() {
 
     companion object {
-        const val RESULT_SKIN_BITMAP = "result_skin_bitmap"
-        const val EXTRA_CURRENT_SKIN = "extra_current_skin"
+        const val EXTRA_SELECTED_SKIN_PATH = "selected_skin_path"
     }
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: SkinAdapter
-    private lateinit var btnAddCurrent: ImageButton
-    private val skinFiles = mutableListOf<File>()
+    private lateinit var addButton: ImageView
+
+    private val skins = mutableListOf<File>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_library)
 
-        recyclerView = findViewById(R.id.recyclerViewSkins)
+        recyclerView = findViewById(R.id.recyclerView)
+        addButton = findViewById(R.id.btnAddSkin)
+
         recyclerView.layoutManager = GridLayoutManager(this, 4)
-
-        btnAddCurrent = findViewById(R.id.btnAddCurrentSkin)
-
-        loadLibrary()
-        adapter = SkinAdapter(skinFiles.map { it.absolutePath }) { path ->
-            val bmp = BitmapFactory.decodeFile(path)
-            val resized = Bitmap.createScaledBitmap(bmp, 64, 64, true)
-            val intent = Intent().apply {
-                putExtra(RESULT_SKIN_BITMAP, bmpToByteArray(resized))
-            }
-            setResult(Activity.RESULT_OK, intent)
-            finish()
-        }
+        adapter = SkinAdapter()
         recyclerView.adapter = adapter
 
-        btnAddCurrent.setOnClickListener {
-            val bytes = intent.getByteArrayExtra(EXTRA_CURRENT_SKIN) ?: return@setOnClickListener
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        loadSkins()
+
+        // ライブラリに追加
+        addButton.setOnClickListener {
+            val bmp = intent.getParcelableExtra<Bitmap>("currentSkin") ?: return@setOnClickListener
             saveSkinToLibrary(bmp)
         }
     }
 
-    private fun loadLibrary() {
-        val dir = getDir("skin_library", Context.MODE_PRIVATE)
-        skinFiles.clear()
-        skinFiles.addAll(dir.listFiles()?.toList() ?: emptyList())
+    private fun loadSkins() {
+        skins.clear()
+        val dir = getSkinsDir()
+        if (!dir.exists()) dir.mkdirs()
+        dir.listFiles()?.let { skins.addAll(it) }
+        adapter.notifyDataSetChanged()
     }
+
+    private fun getSkinsDir(): File = File(filesDir, "skin_library")
 
     private fun saveSkinToLibrary(bitmap: Bitmap) {
-        val dir = getDir("skin_library", Context.MODE_PRIVATE)
-        val file = File(dir, "skin_${System.currentTimeMillis()}.png")
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        val dir = getSkinsDir()
+        val filename = "skin_${System.currentTimeMillis()}.png"
+        val file = File(dir, filename)
+        try {
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            Toast.makeText(this, "スキン追加しました", Toast.LENGTH_SHORT).show()
+            loadSkins()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "追加に失敗しました", Toast.LENGTH_SHORT).show()
         }
-        skinFiles.add(file)
-        adapter.updateData(skinFiles.map { it.absolutePath })
     }
 
-    private fun bmpToByteArray(bitmap: Bitmap): ByteArray {
-        val baos = java.io.ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
-        return baos.toByteArray()
+    inner class SkinAdapter : RecyclerView.Adapter<SkinAdapter.SkinViewHolder>() {
+
+        inner class SkinViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val imgSkin: ImageView = view.findViewById(R.id.imgSkinItem)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SkinViewHolder {
+            val view = layoutInflater.inflate(R.layout.item_skin, parent, false)
+            return SkinViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: SkinViewHolder, position: Int) {
+            val file = skins[position]
+            val bmp = BitmapFactory.decodeFile(file.absolutePath)
+            holder.imgSkin.setImageBitmap(bmp)
+
+            // 選択
+            holder.imgSkin.setOnClickListener {
+                val data = Intent().apply {
+                    putExtra(EXTRA_SELECTED_SKIN_PATH, file.absolutePath)
+                }
+                setResult(Activity.RESULT_OK, data)
+                finish()
+            }
+
+            // 削除
+            holder.imgSkin.setOnLongClickListener {
+                AlertDialog.Builder(this@SkinLibraryActivity)
+                    .setTitle("削除確認")
+                    .setMessage("このスキンを削除しますか？")
+                    .setPositiveButton("削除") { _, _ ->
+                        file.delete()
+                        loadSkins()
+                        Toast.makeText(this@SkinLibraryActivity, "削除しました", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("キャンセル", null)
+                    .show()
+                true
+            }
+        }
+
+        override fun getItemCount(): Int = skins.size
     }
 }
