@@ -10,8 +10,8 @@
 
 <ImageView
     android:id="@+id/imgSkin"
-    android:layout_width="128dp"
-    android:layout_height="128dp"
+    android:layout_width="218dp"
+    android:layout_height="218dp"
     android:scaleType="fitCenter"
     android:layout_gravity="center" />
 
