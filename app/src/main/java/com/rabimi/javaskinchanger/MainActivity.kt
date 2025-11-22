@@ -33,6 +33,7 @@ class MainActivity : Activity() {
     private lateinit var skinView: ImageView
 
     private val REQUEST_SKIN_PICK = 1001
+    private val REQUEST_LIBRARY = 2001
     private var currentSkinBitmap: Bitmap? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -65,7 +66,6 @@ class MainActivity : Activity() {
         btnUpload.visibility = View.GONE
         progressBar.visibility = View.GONE
 
-        // ★ 文字を白色に統一
         val white = getColor(R.color.white)
         btnSelect.setTextColor(white)
         btnUpload.setTextColor(white)
@@ -79,8 +79,11 @@ class MainActivity : Activity() {
         btnSelect.setOnClickListener { selectSkinImage() }
         btnUpload.setOnClickListener { handleUpload() }
 
+        // ★ ライブラリボタン
         btnLibrary.setOnClickListener {
-            AlertDialog.Builder(this).setMessage("未実装").setPositiveButton("OK", null).show()
+            val intent = Intent(this, SkinLibraryActivity::class.java)
+            intent.putExtra("currentSkin", currentSkinBitmap)
+            startActivityForResult(intent, REQUEST_LIBRARY)
         }
 
         btnLogout.setOnClickListener {
@@ -90,7 +93,6 @@ class MainActivity : Activity() {
         }
     }
 
-    /** res/raw/steve.png 読み込み */
     private fun loadDefaultSteveSkin() {
         val input = resources.openRawResource(R.raw.steve)
         val bmp = BitmapFactory.decodeStream(input)
@@ -118,18 +120,25 @@ class MainActivity : Activity() {
 
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
+
+        // ライブラリから戻ってきた場合
+        if (req == REQUEST_LIBRARY && res == Activity.RESULT_OK) {
+            val path = data?.getStringExtra(SkinLibraryActivity.EXTRA_SELECTED_SKIN_PATH) ?: return
+            val bmp = BitmapFactory.decodeFile(path)
+            currentSkinBitmap = resizeTo64(bmp)
+            skinView.setImageBitmap(currentSkinBitmap)
+        }
+
+        // スキン選択から戻ってきた場合
         if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
             val uri = data?.data ?: return
             try {
                 val orig = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                 val bmp = resizeTo64(orig)
-
                 currentSkinBitmap = bmp
                 skinView.setImageBitmap(bmp)
-
                 btnUpload.visibility = View.VISIBLE
                 btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 AlertDialog.Builder(this)
@@ -149,7 +158,6 @@ class MainActivity : Activity() {
         )
     }
 
-    /** 実行ボタン */
     private fun handleUpload() {
         val bmp = currentSkinBitmap ?: return
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
@@ -171,14 +179,12 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 本物の Mojang API 仕様に合わせた multipart */
     private suspend fun uploadSkin(
         token: String,
         bmp: Bitmap,
         model: String,
         onProgress: (Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
-
         try {
             val boundary = "----RabimiBoundary"
             val url = URL("https://api.minecraftservices.com/minecraft/profile/skins")
@@ -195,12 +201,10 @@ class MainActivity : Activity() {
 
             Log.d(TAG, "variant = $model")
 
-            // ★ variant が正しいキー名（skinModel ではない）
             out.writeBytes("--$boundary\r\n")
             out.writeBytes("Content-Disposition: form-data; name=\"variant\"\r\n\r\n")
             out.writeBytes("$model\r\n")
 
-            // PNG file
             out.writeBytes("--$boundary\r\n")
             out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n")
             out.writeBytes("Content-Type: image/png\r\n\r\n")
@@ -242,7 +246,6 @@ class MainActivity : Activity() {
             }
 
             code in 200..299
-
         } catch (e: Exception) {
             Log.e(TAG, "UPLOAD ERROR", e)
             false
