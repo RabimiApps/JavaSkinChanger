@@ -1,4 +1,4 @@
-name: Android Build (Gradle 9.2.1)
+name: Android Build (Gradle 8.7)
 
 on:
   push:
@@ -79,30 +79,12 @@ jobs:
       - name: Release
         uses: ncipollo/release-action@v1
         with:
-          tag: BETA
+          tag: v${{ env.VERSION_CODE }}
           name: JavaSkinChanger Release - ${{ env.VERSION_NAME }}
           artifacts: output/JavaSkinChanger-latest.apk
           allowUpdates: true
-          replacesArtifacts: true
-          prerelease: true
-
-      - name: archive
-        uses: ncipollo/release-action@v1
-        with:
-          tag: v-${{ env.VERSION_CODE }}
-          name: JavaSkinChanger Archive - ${{ env.VERSION_NAME }}
-          artifacts: output/JavaSkinChanger-latest.apk
-          allowUpdates: true
-          prerelease: true
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: JSC-APKZIP
-          path: output/JavaSkinChanger-latest.apk
+          release: true
           
-      - name: List all native libs
-        run: unzip -l output/JavaSkinChanger-latest.apk | grep "\.so" || true && unzip -l output/JavaSkinChanger-latest.apk | grep gdx || true && unzip -l output/JavaSkinChanger-latest.apk | grep libgdx.so || true
 
 
 
