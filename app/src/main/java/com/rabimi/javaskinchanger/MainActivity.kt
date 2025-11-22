@@ -67,8 +67,6 @@ class MainActivity : Activity() {
 
         // ★ 文字を白色に統一
         val white = getColor(R.color.white)
-        txtUsername.setTextColor(white)
-        lblModel.setTextColor(white)
         btnSelect.setTextColor(white)
         btnUpload.setTextColor(white)
         btnLibrary.setTextColor(white)
