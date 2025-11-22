@@ -56,11 +56,11 @@ class MainActivity : Activity() {
         setupUI()
         checkLogin()
 
-        // ☆ 初期スキンを steve.png に強制
+        // ★ 初期スキンは res/raw/steve.png
         loadDefaultSteveSkin()
     }
 
-    /** res/raw/steve.png のビットマップを読み込んで表示する */
+    /** res/raw/steve.png を読み込む */
     private fun loadDefaultSteveSkin() {
         val input = resources.openRawResource(R.raw.steve)
         val bmp = BitmapFactory.decodeStream(input)
@@ -84,7 +84,10 @@ class MainActivity : Activity() {
         btnUpload.setOnClickListener { handleUpload() }
 
         btnLibrary.setOnClickListener {
-            AlertDialog.Builder(this).setMessage("未実装").setPositiveButton("OK", null).show()
+            AlertDialog.Builder(this)
+                .setMessage("未実装")
+                .setPositiveButton("OK", null)
+                .show()
         }
 
         btnLogout.setOnClickListener {
@@ -112,7 +115,6 @@ class MainActivity : Activity() {
         startActivityForResult(Intent.createChooser(intent, "スキンを選択"), REQUEST_SKIN_PICK)
     }
 
-    /** 選択後即プレビュー */
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
         if (req == REQUEST_SKIN_PICK && res == Activity.RESULT_OK) {
@@ -176,7 +178,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** アップロード本体 */
+    /** Mojang API 正式対応のスキンアップロード */
     private suspend fun uploadSkin(
         token: String,
         bmp: Bitmap,
@@ -197,10 +199,12 @@ class MainActivity : Activity() {
 
             val out = DataOutputStream(conn.outputStream)
 
+            // skinModel
             out.writeBytes("--$boundary\r\n")
-            out.writeBytes("Content-Disposition: form-data; name=\"variant\"\r\n\r\n")
+            out.writeBytes("Content-Disposition: form-data; name=\"skinModel\"\r\n\r\n")
             out.writeBytes("$model\r\n")
 
+            // file
             out.writeBytes("--$boundary\r\n")
             out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n")
             out.writeBytes("Content-Type: image/png\r\n\r\n")
@@ -209,18 +213,22 @@ class MainActivity : Activity() {
             bmp.compress(Bitmap.CompressFormat.PNG, 100, pngBaos)
             val bytes = pngBaos.toByteArray()
 
-            val chunk = if (bytes.size >= 100) bytes.size / 100 else bytes.size
-            if (chunk <= 0) {
-                out.write(bytes)
+            val chunk = (bytes.size / 100).coerceAtLeast(1)
+
+            var written = 0
+            for (i in 0 until 100) {
+                val start = i * chunk
+                if (start >= bytes.size) break
+                val end = ((i + 1) * chunk).coerceAtMost(bytes.size)
+                out.write(bytes, start, end - start)
+                written = end
+                onProgress(i + 1)
+            }
+
+            // 残り書き込み
+            if (written < bytes.size) {
+                out.write(bytes, written, bytes.size - written)
                 onProgress(100)
-            } else {
-                for (i in 0 until 100) {
-                    val start = i * chunk
-                    val end = if (i == 99) bytes.size else (i + 1) * chunk
-                    if (start >= bytes.size) break
-                    out.write(bytes, start, end - start)
-                    onProgress(i + 1)
-                }
             }
 
             out.writeBytes("\r\n--$boundary--\r\n")
