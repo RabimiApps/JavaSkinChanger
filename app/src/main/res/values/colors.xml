@@ -5,4 +5,5 @@
     <color name="teal_700">#1976D2</color>
     <color name="switch_thumb">#FFFFFF</color> <!-- 白いつまみ -->
     <color name="switch_track">#4CD964</color> <!-- iOS風グリーン -->
+    <color name="gray">#BDBDBD</color>
 </resources>
