@@ -127,6 +127,8 @@ class MainActivity : Activity() {
             val bmp = BitmapFactory.decodeFile(path)
             currentSkinBitmap = resizeTo64(bmp)
             skinView.setImageBitmap(currentSkinBitmap)
+            btnUpload.visibility = View.VISIBLE
+            btnUpload.backgroundTintList = ColorStateList.valueOf(colorUploadTarget)
         }
 
         // スキン選択から戻ってきた場合
