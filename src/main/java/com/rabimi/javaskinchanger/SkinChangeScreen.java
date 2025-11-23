@@ -1,11 +1,12 @@
 package com.rabimi.javaskinchanger;
 
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.narration.NarrationMessageBuilder;
+import net.minecraft.client.gui.narration.NarrationSupplier;
 
 public class SkinChangeScreen extends Screen {
 
@@ -17,16 +18,22 @@ public class SkinChangeScreen extends Screen {
 
     @Override
     protected void init() {
-        // テキストフィールドの位置とサイズを設定
         this.urlField = new TextFieldWidget(this.textRenderer, 10, 10, 200, 20, Text.of("Skin URL"));
         this.addDrawableChild(this.urlField);
+
+        // ButtonWidget用の自作 NarrationSupplier
+        NarrationSupplier narration = () -> {
+            NarrationMessageBuilder builder = new NarrationMessageBuilder();
+            builder.append(Text.of("Button"));
+            return builder;
+        };
 
         // Apply Skin ボタン
         this.addDrawableChild(new ButtonWidget(
                 10, 40, 100, 20,
                 Text.of("Apply Skin"),
                 button -> SkinChanger.applySkin(urlField.getText()),
-                ButtonWidget.DEFAULT_NARRATION_SUPPLIER // ここは protected なので同パッケージか別実装に変更する必要あり
+                narration
         ));
 
         // Cancel ボタン
@@ -34,18 +41,14 @@ public class SkinChangeScreen extends Screen {
                 120, 40, 100, 20,
                 Text.of("Cancel"),
                 button -> this.client.setScreen(null),
-                ButtonWidget.DEFAULT_NARRATION_SUPPLIER
+                narration
         ));
     }
 
     @Override
     public void render(DrawContext drawContext, int mouseX, int mouseY, float delta) {
-        // 背景を描画
         this.renderBackground(drawContext, mouseX, mouseY, delta);
-
-        // テキストフィールドを描画
         this.urlField.render(drawContext, mouseX, mouseY, delta);
-
         super.render(drawContext, mouseX, mouseY, delta);
     }
 }
