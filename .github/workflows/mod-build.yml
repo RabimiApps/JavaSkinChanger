@@ -1,8 +1,8 @@
-name: Build Mod
+name: Build Fabric Mod
 
 on:
   push:
-    branches: [ mod ]
+    branches: [mod]
   pull_request:
 
 jobs:
@@ -15,20 +15,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
-      - name: Gradlewアクセス許可
+      - name: Grant Gradle execution permission
         run: chmod +x gradlew
 
-      - name: Build MOD
+      - name: Build Mod
         run: ./gradlew build --no-daemon
 
       - name: Upload MOD artifact
         uses: actions/upload-artifact@v4
         with:
-          name: javaskinchanger-fabric
-          path: build/libs/javaskinchanger-fabric-1.0.0.jar
+          name: JavaSkinChanger-mod
+          path: build/libs/*.jar
