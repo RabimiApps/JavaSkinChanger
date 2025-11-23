@@ -1,13 +1,3 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.fabricmc.net/' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath "net.fabricmc:fabric-loom:1.9.2"
-    }
-}
-
 plugins {
     id 'java'
 }
@@ -24,7 +14,14 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:1.21.1"
-    mappings "net.fabricmc:yarn:1.21.1+build.12:v2"
+    // Yarn を直接指定せず Mojang mappings に変更
+    mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:0.15.0"
     modImplementation "net.fabricmc.fabric-api:fabric-api:0.103.0+1.21.1"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
 }
