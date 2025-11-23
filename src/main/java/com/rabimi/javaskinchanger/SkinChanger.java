@@ -1,9 +1,8 @@
 package com.rabimi.javaskinchanger;
 
-import net.minecraft.client.MinecraftClient;
-
 import java.net.HttpURLConnection;
 import java.net.URL;
+import net.minecraft.client.MinecraftClient;
 
 public class SkinChanger {
 
@@ -25,14 +24,16 @@ public class SkinChanger {
 
                 conn.getOutputStream().write(body.getBytes());
 
-                System.out.println("Skin API Response: " + conn.getResponseCode());
+                int responseCode = conn.getResponseCode();
+                System.out.println("Skin API Response: " + responseCode);
 
-                // Minecraft 1.21.5では refreshSkin がないので SkinProvider.reload() を使用
-                mc.execute(() -> {
-                    if (mc.player != null) {
-                        mc.getSkinProvider().reload();
-                    }
-                });
+                if (responseCode == 200 || responseCode == 204) {
+                    mc.execute(() -> {
+                        mc.player.sendMessage(
+                            Text.of("スキンをアップロードしました！ワールドまたはサーバーを再参加してください。"), false
+                        );
+                    });
+                }
 
             } catch (Exception e) {
                 e.printStackTrace();
