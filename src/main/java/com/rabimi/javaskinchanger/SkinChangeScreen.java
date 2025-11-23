@@ -1,29 +1,43 @@
 package com.rabimi.javaskinchanger;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 
-public class SkinChangeScreen extends Screen {
+import java.net.HttpURLConnection;
+import java.net.URL;
 
-    private TextFieldWidget urlField;
+public class SkinChanger {
 
-    protected SkinChangeScreen() {
-        super(Text.literal("Skin Changer"));
-    }
+    public static void applySkin(String skinUrl) {
+        new Thread(() -> {
+            try {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                String token = mc.getSession().getAccessToken();
 
-    @Override
-    protected void init() {
+                String body = "{ \"variant\": \"classic\", \"url\": \"" + skinUrl + "\" }";
 
-        int center = this.width / 2;
+                HttpURLConnection conn = (HttpURLConnection)
+                        new URL("https://api.minecraftservices.com/minecraft/profile/skins").openConnection();
 
-        urlField = new TextFieldWidget(textRenderer, center - 100, 70, 200, 20, Text.literal("URL"));
-        addSelectableChild(urlField);
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setRequestProperty("Content-Type", "application/json");
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Apply Skin"), btn -> {
-            String url = urlField.getText();
-            SkinChanger.applySkin(url);
-        }).dimensions(center - 40, 110, 80, 20).build());
+                conn.getOutputStream().write(body.getBytes());
+
+                System.out.println("Skin API Response: " + conn.getResponseCode());
+
+                // ===== ここが重要：refreshSkin が 1.21.5 には無いので SkinProvider.reload() =====
+                mc.execute(() -> {
+                    if (mc.player != null) {
+                        mc.getSkinProvider().reload();  // ← これが正しい更新処理
+                    }
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 }
