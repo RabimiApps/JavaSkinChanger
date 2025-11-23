@@ -1,7 +1,6 @@
 package com.rabimi.javaskinchanger;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -11,7 +10,8 @@ public class SkinChanger {
     public static void applySkin(String skinUrl) {
         new Thread(() -> {
             try {
-                String token = MinecraftClient.getInstance().getSession().getAccessToken();
+                MinecraftClient mc = MinecraftClient.getInstance();
+                String token = mc.getSession().getAccessToken();
 
                 String body = "{ \"variant\": \"classic\", \"url\": \"" + skinUrl + "\" }";
 
@@ -27,9 +27,11 @@ public class SkinChanger {
 
                 System.out.println("Skin API Response: " + conn.getResponseCode());
 
-                MinecraftClient.getInstance().execute(() -> {
-                    ClientPlayerEntity p = MinecraftClient.getInstance().player;
-                    if (p != null) p.refreshSkin();
+                // Minecraft 1.21.5では refreshSkin がないので SkinProvider.reload() を使用
+                mc.execute(() -> {
+                    if (mc.player != null) {
+                        mc.getSkinProvider().reload();
+                    }
                 });
 
             } catch (Exception e) {
