@@ -2,86 +2,54 @@ package com.rabimi.javaskinchanger;
 
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.gui.DrawableHelper;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
+import net.minecraft.client.util.math.MatrixStack;
 
 public class SkinChangeScreen extends Screen {
 
-    private static final int WINDOW_WIDTH = 250;
-    private static final int WINDOW_HEIGHT = 200;
+    private static final int WINDOW_WIDTH = 200;
+    private static final int WINDOW_HEIGHT = 100;
+    private int leftX;
+    private int topY;
 
-    public SkinChangeScreen() {
-        super(Text.of("JavaSkinChanger"));
+    protected SkinChangeScreen() {
+        super(Text.of("SkinChanger"));
     }
 
     @Override
     protected void init() {
-        super.init();
+        leftX = (this.width - WINDOW_WIDTH) / 2;
+        topY = (this.height - WINDOW_HEIGHT) / 2;
 
-        // ウィンドウ中央座標
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-
-        int leftX = centerX - WINDOW_WIDTH / 2;
-        int topY = centerY - WINDOW_HEIGHT / 2;
-
-        int buttonWidth = 80;
-        int buttonHeight = 20;
-        int spacing = 5;
-
-        // モデル変更ボタン
         this.addDrawableChild(new ButtonWidget(
-                leftX + 10,
-                topY + 50,
-                buttonWidth,
-                buttonHeight,
-                Text.of("モデル変更"),
-                button -> {
-                    // TODO: モデル変更処理
-                }
+            leftX + 10, topY + 20, 80, 20,
+            Text.of("Change Skin"),
+            button -> {
+                // ボタン押下時の処理
+            },
+            ButtonWidget.DEFAULT_NARRATION_SUPPLIER
         ));
 
-        // スキン変更ボタン
         this.addDrawableChild(new ButtonWidget(
-                leftX + 10,
-                topY + 50 + buttonHeight + spacing,
-                buttonWidth,
-                buttonHeight,
-                Text.of("スキン変更"),
-                button -> {
-                    // TODO: スキン変更処理
-                }
-        ));
-
-        // リロードボタン
-        this.addDrawableChild(new ButtonWidget(
-                leftX + 10,
-                topY + 50 + (buttonHeight + spacing) * 2,
-                buttonWidth,
-                buttonHeight,
-                Text.of("リロード"),
-                button -> {
-                    // TODO: リロード処理
-                }
+            leftX + 110, topY + 20, 80, 20,
+            Text.of("Reset Skin"),
+            button -> {
+                // ボタン押下時の処理
+            },
+            ButtonWidget.DEFAULT_NARRATION_SUPPLIER
         ));
     }
 
     @Override
-    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-        // 背景半透明
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-        int leftX = centerX - WINDOW_WIDTH / 2;
-        int topY = centerY - WINDOW_HEIGHT / 2;
-        fill(matrices, leftX, topY, leftX + WINDOW_WIDTH, topY + WINDOW_HEIGHT, 0xBF000000);
+    public void render(DrawContext drawContext, int mouseX, int mouseY, float delta) {
+        // 背景
+        drawContext.fill(leftX, topY, leftX + WINDOW_WIDTH, topY + WINDOW_HEIGHT, 0xBF000000);
 
-        // 左上テキスト
-        this.textRenderer.drawWithShadow(matrices, "JavaSkinChanger", leftX + 5, topY + 5, 0xFFFFFF);
+        // タイトル
+        drawContext.drawText(this.textRenderer, Text.of("JavaSkinChanger"), leftX + 5, topY + 5, 0xFFFFFF, false);
 
-        super.render(matrices, mouseX, mouseY, delta);
-
-        // TODO: 左側3Dスキン描画
-        // RenderSkinnedModel.render(matrices, leftX + 10, topY + 30, 50, playerSkin);
+        super.render(drawContext, mouseX, mouseY, delta);
     }
 }
