@@ -1,14 +1,16 @@
 plugins {
-    id 'fabric-loom' version '1.7-SNAPSHOT'
+    id 'fabric-loom' version '1.9.2'
     id 'java'
 }
 
-archivesBaseName = 'javaskinchanger-fabric'
 group = 'com.rabimi'
 version = '1.0.0'
 
 repositories {
     mavenCentral()
+    maven {
+            url = "https://maven.fabricmc.net/"
+        }
 }
 
 dependencies {
