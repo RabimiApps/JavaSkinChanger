@@ -1,9 +1,9 @@
-package com.rabimi.javaskinchanger;
-
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
+import net.minecraft.client.gui.DrawableHelper;
 
 public class SkinChangeScreen extends Screen {
 
@@ -35,7 +35,7 @@ public class SkinChangeScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         // 背景透明75%
-        fill(context, 0, 0, width, height, 0xBF000000);
+        DrawableHelper.fill(context.getMatrices(), 0, 0, width, height, 0xBF000000);
 
         // 左上タイトル
         context.drawTextWithShadow(textRenderer, "JavaSkinChanger", 5, 5, 0xFFFFFF);
