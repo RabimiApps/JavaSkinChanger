@@ -6,8 +6,6 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-public class SkinChanger {
-
     public static void applySkin(String skinUrl) {
         new Thread(() -> {
             try {
@@ -40,4 +38,3 @@ public class SkinChanger {
             }
         }).start();
     }
-}
