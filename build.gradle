@@ -3,6 +3,7 @@ plugins {
     id 'java'
 }
 
+archivesBaseName = 'javaskinchanger-fabric'
 group = 'com.rabimi'
 version = '1.0.0'
 
