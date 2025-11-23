@@ -1,40 +1,45 @@
 package com.rabimi.javaskinchanger;
 
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
+public class SkinChangeScreen extends Screen {
 
-    public static void applySkin(String skinUrl) {
-        new Thread(() -> {
-            try {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                String token = mc.getSession().getAccessToken();
+    private TextFieldWidget urlField;
 
-                String body = "{ \"variant\": \"classic\", \"url\": \"" + skinUrl + "\" }";
-
-                HttpURLConnection conn = (HttpURLConnection)
-                        new URL("https://api.minecraftservices.com/minecraft/profile/skins").openConnection();
-
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Authorization", "Bearer " + token);
-                conn.setRequestProperty("Content-Type", "application/json");
-
-                conn.getOutputStream().write(body.getBytes());
-
-                System.out.println("Skin API Response: " + conn.getResponseCode());
-
-                // ===== ここが重要：refreshSkin が 1.21.5 には無いので SkinProvider.reload() =====
-                mc.execute(() -> {
-                    if (mc.player != null) {
-                        mc.getSkinProvider().reload();  // ← これが正しい更新処理
-                    }
-                });
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
+    protected SkinChangeScreen() {
+        super(Text.of("Skin Changer"));
     }
+
+    @Override
+    protected void init() {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        // URL入力欄を作成
+        urlField = new TextFieldWidget(this.textRenderer, 10, 10, 200, 20, Text.of("Skin URL"));
+        this.addDrawableChild(urlField);
+
+        // ボタンを作成
+        this.addDrawableChild(new ButtonWidget(10, 40, 100, 20, Text.of("Apply Skin"), button -> {
+            String url = urlField.getText();
+            if (url != null && !url.isEmpty()) {
+                SkinChanger.applySkin(url);
+            }
+        }));
+
+        // キャンセルボタン
+        this.addDrawableChild(new ButtonWidget(120, 40, 100, 20, Text.of("Cancel"), button -> {
+            client.setScreen(null); // 前の画面に戻る
+        }));
+    }
+
+    @Override
+    public void render(int mouseX, int mouseY, float delta) {
+        this.renderBackground();
+        urlField.render(mouseX, mouseY, delta);
+        super.render(mouseX, mouseY, delta);
+    }
+}
