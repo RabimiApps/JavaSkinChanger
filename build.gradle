@@ -1,7 +1,3 @@
-plugins {
-    id 'java'
-}
-
 buildscript {
     repositories {
         maven { url = 'https://maven.fabricmc.net/' }
@@ -10,6 +6,10 @@ buildscript {
     dependencies {
         classpath "net.fabricmc:fabric-loom:1.9.2"
     }
+}
+
+plugins {
+    id 'java'
 }
 
 apply plugin: 'fabric-loom'
