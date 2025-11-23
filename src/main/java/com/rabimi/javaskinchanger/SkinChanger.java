@@ -1,43 +1,43 @@
 package com.rabimi.javaskinchanger;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.text.Text;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.narration.NarrationSupplier;
+import net.minecraft.client.gui.narration.NarrationMessageBuilder;
 
-public class SkinChanger {
+public class SkinChangeScreen extends Screen {
 
-    public static void applySkin(String skinUrl) {
-        new Thread(() -> {
-            try {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                String token = mc.getSession().getAccessToken();
+    protected SkinChangeScreen() {
+        super(Text.of("Skin Changer"));
+    }
 
-                String body = "{ \"variant\": \"classic\", \"url\": \"" + skinUrl + "\" }";
+    @Override
+    protected void init() {
+        MinecraftClient client = MinecraftClient.getInstance();
 
-                HttpURLConnection conn = (HttpURLConnection)
-                        new URL("https://api.minecraftservices.com/minecraft/profile/skins").openConnection();
+        // NarrationSupplier を簡易で作る
+        NarrationSupplier narration = () -> new NarrationMessageBuilder().build();
 
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Authorization", "Bearer " + token);
-                conn.setRequestProperty("Content-Type", "application/json");
+        // Apply Skin ボタン
+        this.addDrawableChild(new ButtonWidget(
+                10, 40, 150, 20, Text.of("アップロード"),
+                button -> SkinChanger.applySkin("https://example.com/skin.png"),
+                narration
+        ));
 
-                conn.getOutputStream().write(body.getBytes());
+        // Cancel ボタン
+        this.addDrawableChild(new ButtonWidget(
+                10, 70, 150, 20, Text.of("キャンセル"),
+                button -> client.setScreen(null),
+                narration
+        ));
+    }
 
-                int responseCode = conn.getResponseCode();
-                System.out.println("Skin API Response: " + responseCode);
-
-                if (responseCode == 200 || responseCode == 204) {
-                    mc.execute(() -> {
-                        mc.player.sendMessage(
-                            Text.of("スキンをアップロードしました！ワールドまたはサーバーを再参加してください。"), false
-                        );
-                    });
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
+    @Override
+    public void render(net.minecraft.client.gui.DrawContext drawContext, int mouseX, int mouseY, float delta) {
+        this.renderBackground(drawContext, mouseX, mouseY, delta);
+        super.render(drawContext, mouseX, mouseY, delta);
     }
 }
