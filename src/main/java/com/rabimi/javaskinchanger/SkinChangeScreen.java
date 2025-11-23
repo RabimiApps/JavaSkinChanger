@@ -1,54 +1,36 @@
 package com.rabimi.javaskinchanger;
 
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-import net.minecraft.client.gui.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.narration.NarrationSupplier;
+import net.minecraft.client.MinecraftClient;
 
 public class SkinChangeScreen extends Screen {
 
-    private TextFieldWidget urlField;
-
-    public SkinChangeScreen() {
-        super(Text.of("Change Skin"));
+    protected SkinChangeScreen() {
+        super(Text.of("Skin Changer"));
     }
 
     @Override
     protected void init() {
-        this.urlField = new TextFieldWidget(this.textRenderer, 10, 10, 200, 20, Text.of("Skin URL"));
-        this.addDrawableChild(this.urlField);
-
-        // ButtonWidget用の自作 NarrationSupplier
-        NarrationSupplier narration = () -> {
-            NarrationMessageBuilder builder = new NarrationMessageBuilder();
-            builder.append(Text.of("Button"));
-            return builder;
-        };
+        MinecraftClient client = MinecraftClient.getInstance();
 
         // Apply Skin ボタン
-        this.addDrawableChild(new ButtonWidget(
-                10, 40, 100, 20,
-                Text.of("Apply Skin"),
-                button -> SkinChanger.applySkin(urlField.getText()),
-                narration
-        ));
+        this.addDrawableChild(new ButtonWidget(10, 40, 150, 20, Text.of("アップロード"), button -> {
+            // ここで SkinChanger を呼ぶ
+            SkinChanger.applySkin("https://example.com/skin.png");
+        }));
 
         // Cancel ボタン
-        this.addDrawableChild(new ButtonWidget(
-                120, 40, 100, 20,
-                Text.of("Cancel"),
-                button -> this.client.setScreen(null),
-                narration
-        ));
+        this.addDrawableChild(new ButtonWidget(10, 70, 150, 20, Text.of("キャンセル"), button -> {
+            client.setScreen(null); // 前の画面に戻る
+        }));
     }
 
     @Override
-    public void render(DrawContext drawContext, int mouseX, int mouseY, float delta) {
-        this.renderBackground(drawContext, mouseX, mouseY, delta);
-        this.urlField.render(drawContext, mouseX, mouseY, delta);
-        super.render(drawContext, mouseX, mouseY, delta);
+    public void render(int mouseX, int mouseY, float delta) {
+        // 背景描画
+        this.renderBackground();
+        super.render(mouseX, mouseY, delta);
     }
 }
