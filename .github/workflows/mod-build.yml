@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # GITHUB_TOKENにリリース作成権限を付与
+      contents: write
 
     steps:
       - name: Checkout repository
