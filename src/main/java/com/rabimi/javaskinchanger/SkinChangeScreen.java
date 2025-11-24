@@ -1,6 +1,7 @@
 package com.rabimi.javaskinchanger;
 
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ScreenTexts;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
@@ -9,7 +10,7 @@ public class SkinChangeScreen extends Screen {
 
     private static final int WINDOW_WIDTH = 200;
     private static final int WINDOW_HEIGHT = 100;
-
+    
     private int leftX;
     private int topY;
 
@@ -24,24 +25,14 @@ public class SkinChangeScreen extends Screen {
         leftX = (this.width - WINDOW_WIDTH) / 2;
         topY = (this.height - WINDOW_HEIGHT) / 2;
 
-        // ボタン追加（NarrationSupplier を追加）
-        this.addDrawableChild(new ButtonWidget(
-                leftX + 10, topY + 40, 80, 20,
-                Text.of("Change Skin"),
-                button -> {
-                    // スキン変更処理
-                },
-                ButtonWidget.DEFAULT_NARRATION_SUPPLIER
-        ));
+        // ButtonWidget.builder を使う
+        this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
+            // スキン変更処理
+        }).dimensions(leftX + 10, topY + 40, 80, 20).build());
 
-        this.addDrawableChild(new ButtonWidget(
-                leftX + 110, topY + 40, 80, 20,
-                Text.of("Reset Skin"),
-                button -> {
-                    // スキンリセット処理
-                },
-                ButtonWidget.DEFAULT_NARRATION_SUPPLIER
-        ));
+        this.addDrawableChild(ButtonWidget.builder(Text.of("Reset Skin"), button -> {
+            // スキンリセット処理
+        }).dimensions(leftX + 110, topY + 40, 80, 20).build());
     }
 
     @Override
