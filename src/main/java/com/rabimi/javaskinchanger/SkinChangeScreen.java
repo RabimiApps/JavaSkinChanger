@@ -62,7 +62,6 @@ public class SkinChangeScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    @Override
     public boolean isPauseScreen() {
         return false;
     }
