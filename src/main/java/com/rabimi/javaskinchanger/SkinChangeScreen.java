@@ -57,6 +57,23 @@ public class SkinChangeScreen extends Screen {
         // タイトル
         context.drawText(this.textRenderer, this.title, leftX + 5, topY + 5, 0xFFFFFF, false);
 
+        // プレイヤー3Dモデル表示
+        if (client.player != null) {
+            float modelX = leftX + windowWidth - 60f;
+            float modelY = topY + windowHeight - 20f;
+            float modelSize = 50f;
+
+            InventoryScreen.drawEntity(
+                    context,
+                    modelX,
+                    modelY,
+                    modelSize,
+                    (float)(modelX - mouseX),
+                    (float)(modelY - mouseY),
+                    client.player
+            );
+        }
+
         super.render(context, mouseX, mouseY, delta);
 
         // ----------------- ★スキン描画処理★ -----------------
