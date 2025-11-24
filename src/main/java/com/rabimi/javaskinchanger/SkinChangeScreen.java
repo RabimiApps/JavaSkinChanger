@@ -5,7 +5,20 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.DynamicTexture;
 import net.minecraft.text.Text;
+import net.minecraft.client.network.ClientPlayerEntity;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+
+import com.mojang.math.Vector3f;
+import com.mojang.math.Quaternion;
+
+import java.awt.FileDialog;
+import java.awt.Frame;
 
 public class SkinChangeScreen extends Screen {
 
@@ -14,11 +27,11 @@ public class SkinChangeScreen extends Screen {
 
     private int windowWidth;
     private int windowHeight;
-
     private int leftX;
     private int topY;
 
     private final MinecraftClient client = MinecraftClient.getInstance();
+    private Identifier customSkin = null;
 
     public SkinChangeScreen(Text title) {
         super(title);
@@ -34,26 +47,49 @@ public class SkinChangeScreen extends Screen {
         leftX = (this.width - windowWidth) / 2;
         topY  = (this.height - windowHeight) / 2;
 
-        int buttonWidth = 80;
+        int buttonWidth = 100;
         int buttonHeight = 20;
         int padding = 10;
 
-        // Change Skin ボタン
-        this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
-            client.player.sendMessage(Text.of("Change Skin押された！"), false);
+        // ファイル選択ボタン
+        this.addDrawableChild(ButtonWidget.builder(Text.of("Choose Skin"), button -> {
+            selectSkinFile();
         }).dimensions(leftX + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
 
         // Reset Skin ボタン
         this.addDrawableChild(ButtonWidget.builder(Text.of("Reset Skin"), button -> {
-            client.player.sendMessage(Text.of("Reset Skin押された！"), false);
+            customSkin = null;
+            client.player.sendMessage(Text.of("スキンをリセットしました！"), false);
         }).dimensions(leftX + padding + buttonWidth + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
+    }
+
+    private void selectSkinFile() {
+        new Thread(() -> {
+            FileDialog dialog = new FileDialog((Frame) null, "Select Skin PNG", FileDialog.LOAD);
+            dialog.setFile("*.png");
+            dialog.setVisible(true);
+            String directory = dialog.getDirectory();
+            String file = dialog.getFile();
+
+            if (directory != null && file != null) {
+                File skinFile = new File(directory, file);
+                try {
+                    NativeImage img = NativeImage.read(new FileInputStream(skinFile));
+                    DynamicTexture tex = new DynamicTexture(img);
+                    customSkin = client.getTextureManager().registerDynamicTexture("custom_skin", tex);
+                    client.player.sendMessage(Text.of("スキン変更完了！"), false);
+                } catch (IOException e) {
+                    client.player.sendMessage(Text.of("スキン読み込み失敗！"), false);
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         // 背景
         context.fill(leftX, topY, leftX + windowWidth, topY + windowHeight, 0xBF000000);
-
         // タイトル
         context.drawText(this.textRenderer, this.title, leftX + 5, topY + 5, 0xFFFFFF, false);
 
@@ -61,37 +97,24 @@ public class SkinChangeScreen extends Screen {
         if (client.player != null) {
             float modelX = leftX + windowWidth - 60f;
             float modelY = topY + windowHeight - 20f;
-            float modelSize = 50f;
+            float scale = 50f;
 
-            InventoryScreen.drawEntity(
-                    context,
-                    modelX,
-                    modelY,
-                    modelSize,
-                    (float)(modelX - mouseX),
-                    (float)(modelY - mouseY),
-                    client.player
-            );
+            Vector3f rotationVec = new Vector3f(0, 180, 0);
+            Quaternion rot1 = Quaternion.IDENTITY;
+            Quaternion rot2 = Quaternion.IDENTITY;
+
+            ClientPlayerEntity player = client.player;
+            if (customSkin != null) {
+                player.setSkinTexture(customSkin);
+            }
+
+            InventoryScreen.drawEntity(context, modelX, modelY, scale, rotationVec, rot1, rot2, player);
+
+            if (customSkin != null) {
+                player.resetSkinTexture();
+            }
         }
 
         super.render(context, mouseX, mouseY, delta);
-
-        // ----------------- ★スキン描画処理★ -----------------
-        if (client.player != null) {
-            int modelX = leftX + windowWidth - 60;   // 右側に表示
-            int modelY = topY + windowHeight - 20;   // 下寄せ
-            int modelSize = 50;                       // 大きさ
-
-            InventoryScreen.drawEntity(
-                    context,
-                    modelX,
-                    modelY,
-                    modelSize,
-                    mouseX - modelX,
-                    mouseY - modelY,
-                    client.player
-            );
-        }
-        // ----------------- ★ここまで★ -----------------
     }
 }
