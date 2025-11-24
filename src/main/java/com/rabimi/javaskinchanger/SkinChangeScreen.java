@@ -29,8 +29,8 @@ public class SkinChangeScreen extends Screen {
     protected void init() {
         super.init();
 
-        leftX = (this.width - WINDOW_WIDTH) / 1.5;
-        topY = (this.height - WINDOW_HEIGHT) / 1.5;
+        leftX = (int)((this.width - WINDOW_WIDTH) / 1.5;)
+        topY = (int)((this.height - WINDOW_HEIGHT) / 1.5;)
 
         // Change Skin ボタン（ローカル表示のみ）
         this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
