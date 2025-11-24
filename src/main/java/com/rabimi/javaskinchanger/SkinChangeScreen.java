@@ -5,18 +5,16 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayerEntity;
 
+import javax.swing.*;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
-import java.awt.FileDialog;
-import java.awt.Frame;
 
 public class SkinChangeScreen extends Screen {
 
@@ -25,10 +23,12 @@ public class SkinChangeScreen extends Screen {
 
     private int windowWidth;
     private int windowHeight;
+
     private int leftX;
     private int topY;
 
     private final MinecraftClient client = MinecraftClient.getInstance();
+
     private Identifier customSkin = null;
 
     public SkinChangeScreen(Text title) {
@@ -49,69 +49,45 @@ public class SkinChangeScreen extends Screen {
         int buttonHeight = 20;
         int padding = 10;
 
-        // ファイル選択ボタン
-        this.addDrawableChild(ButtonWidget.builder(Text.of("Choose Skin"), button -> {
-            selectSkinFile();
+        // Change Skin ボタン (PC用ファイル選択)
+        this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
+            SwingUtilities.invokeLater(() -> {
+                JFileChooser chooser = new JFileChooser();
+                int result = chooser.showOpenDialog(null);
+                if (result == JFileChooser.APPROVE_OPTION) {
+                    File file = chooser.getSelectedFile();
+                    try (FileInputStream fis = new FileInputStream(file)) {
+                        NativeImageBackedTexture tex = new NativeImageBackedTexture(fis.readAllBytes());
+                        // テクスチャ名は一意にする
+                        customSkin = client.getTextureManager().registerDynamicTexture("custom_skin", tex);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
         }).dimensions(leftX + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
 
         // Reset Skin ボタン
-        this.addDrawableChild(ButtonWidget.builder(Text.of("Reset Skin"), button -> {
-            customSkin = null;
-            client.player.sendMessage(Text.of("スキンをリセットしました！"), false);
-        }).dimensions(leftX + padding + buttonWidth + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
-    }
-
-    private void selectSkinFile() {
-        new Thread(() -> {
-            FileDialog dialog = new FileDialog((Frame) null, "Select Skin PNG", FileDialog.LOAD);
-            dialog.setFile("*.png");
-            dialog.setVisible(true);
-            String directory = dialog.getDirectory();
-            String file = dialog.getFile();
-
-            if (directory != null && file != null) {
-                File skinFile = new File(directory, file);
-                try {
-                    NativeImage img = NativeImage.read(new FileInputStream(skinFile));
-                    NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
-                    customSkin = client.getTextureManager().registerDynamicTexture("custom_skin", tex);
-                    client.player.sendMessage(Text.of("スキン変更完了！"), false);
-                } catch (IOException e) {
-                    client.player.sendMessage(Text.of("スキン読み込み失敗！"), false);
-                    e.printStackTrace();
-                }
-            }
-        }).start();
+        this.addDrawableChild(ButtonWidget.builder(Text.of("Reset Skin"), button -> customSkin = null)
+                .dimensions(leftX + padding + buttonWidth + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 背景
         context.fill(leftX, topY, leftX + windowWidth, topY + windowHeight, 0xBF000000);
-        // タイトル
         context.drawText(this.textRenderer, this.title, leftX + 5, topY + 5, 0xFFFFFF, false);
 
-        // プレイヤー3Dモデル表示
-        if (client.player != null) {
-            ClientPlayerEntity player = client.player;
+        if (customSkin != null) {
+            int modelX = leftX + windowWidth - 60;
+            int modelY = topY + windowHeight - 20;
+            int size = 50;
 
-            if (customSkin != null) {
-                player.setSkinTexture(customSkin); // Fabric 1.21.x で動く
-            }
+            AbstractClientPlayerEntity fakePlayer = new ClientPlayerEntity(client.world, client.player.getGameProfile());
+            fakePlayer.setSkinTexture(customSkin);
 
             InventoryScreen.drawEntity(
-                    context,
-                    leftX + windowWidth - 60,
-                    topY + windowHeight - 20,
-                    50,
-                    leftX + windowWidth / 2 - mouseX,
-                    topY + windowHeight / 2 - mouseY,
-                    player
+                    context, modelX, modelY, size, mouseX - modelX, mouseY - modelY, fakePlayer
             );
-
-            if (customSkin != null) {
-                player.resetSkinTexture();
-            }
         }
 
         super.render(context, mouseX, mouseY, delta);
