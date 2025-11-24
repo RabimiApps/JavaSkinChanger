@@ -5,11 +5,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.text.Text;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import com.mojang.math.Vector3f;
-import com.mojang.math.Quaternion;
 
 public class SkinChangeScreen extends Screen {
 
@@ -44,6 +43,7 @@ public class SkinChangeScreen extends Screen {
         // 左下・水色 画像選択ボタン
         this.addDrawableChild(ButtonWidget.builder(Text.of("画像選択"), btn -> {
             System.out.println("画像選択ボタン押下");
+            // 将来的にスキン選択処理をここに
         }).dimensions(leftX + padding, topY + windowHeight - buttonHeight - padding, buttonWidth, buttonHeight).build());
     }
 
@@ -60,30 +60,25 @@ public class SkinChangeScreen extends Screen {
         context.fill(centerX - 1, topY, centerX + 1, topY + windowHeight, 0xFFD3D3D3);
 
         // 左側に3Dプレイヤーモデル表示
-        drawPlayerModel(context);
+        drawPlayerModel(context, mouseX, mouseY);
 
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private void drawPlayerModel(DrawContext context) {
-        if (client.player == null) return;
+    private void drawPlayerModel(DrawContext context, int mouseX, int mouseY) {
+        if(client.player == null) return;
 
         int modelX = leftX + windowWidth / 4;
         int modelY = topY + windowHeight / 2 + 20;
 
-        // 回転ベクトルとクォータニオン
-        Vector3f rotationVec = new Vector3f(0, 180, 0);
-        Quaternion rot1 = Quaternion.ONE;
-        Quaternion rot2 = Quaternion.ONE;
-
+        // 3Dモデル描画
         InventoryScreen.drawEntity(
             context,
-            (float)modelX,
-            (float)modelY,
-            30f,                 // モデルサイズ
-            rotationVec,
-            rot1,
-            rot2,
+            modelX,
+            modelY,
+            40, // サイズ
+            modelX - mouseX,
+            modelY - mouseY,
             (LivingEntity) client.player
         );
     }
