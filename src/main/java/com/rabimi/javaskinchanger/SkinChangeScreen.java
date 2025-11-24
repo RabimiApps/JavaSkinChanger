@@ -6,17 +6,15 @@ import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.DynamicTexture;
-import net.minecraft.text.Text;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-
-import com.mojang.math.Vector3f;
-import com.mojang.math.Quaternion;
-
 import java.awt.FileDialog;
 import java.awt.Frame;
 
@@ -75,7 +73,7 @@ public class SkinChangeScreen extends Screen {
                 File skinFile = new File(directory, file);
                 try {
                     NativeImage img = NativeImage.read(new FileInputStream(skinFile));
-                    DynamicTexture tex = new DynamicTexture(img);
+                    NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
                     customSkin = client.getTextureManager().registerDynamicTexture("custom_skin", tex);
                     client.player.sendMessage(Text.of("スキン変更完了！"), false);
                 } catch (IOException e) {
@@ -95,20 +93,21 @@ public class SkinChangeScreen extends Screen {
 
         // プレイヤー3Dモデル表示
         if (client.player != null) {
-            float modelX = leftX + windowWidth - 60f;
-            float modelY = topY + windowHeight - 20f;
-            float scale = 50f;
-
-            Vector3f rotationVec = new Vector3f(0, 180, 0);
-            Quaternion rot1 = Quaternion.IDENTITY;
-            Quaternion rot2 = Quaternion.IDENTITY;
-
             ClientPlayerEntity player = client.player;
+
             if (customSkin != null) {
-                player.setSkinTexture(customSkin);
+                player.setSkinTexture(customSkin); // Fabric 1.21.x で動く
             }
 
-            InventoryScreen.drawEntity(context, modelX, modelY, scale, rotationVec, rot1, rot2, player);
+            InventoryScreen.drawEntity(
+                    context,
+                    leftX + windowWidth - 60,
+                    topY + windowHeight - 20,
+                    50,
+                    leftX + windowWidth / 2 - mouseX,
+                    topY + windowHeight / 2 - mouseY,
+                    player
+            );
 
             if (customSkin != null) {
                 player.resetSkinTexture();
