@@ -4,10 +4,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.gui.Element;
 
 public class SkinChangeScreen extends Screen {
 
@@ -19,6 +18,7 @@ public class SkinChangeScreen extends Screen {
     private int leftX;
     private int topY;
 
+    private Identifier currentSkinTexture; // ← 追加（将来スキン差し替え用）
     private final MinecraftClient client = MinecraftClient.getInstance();
 
     public SkinChangeScreen(Text title) {
@@ -39,16 +39,15 @@ public class SkinChangeScreen extends Screen {
         int buttonHeight = 25;
         int padding = 10;
 
-        // 画像選択ボタン（左側、水色）
-        this.addDrawableChild(ButtonWidget.builder(Text.of("画像選択"), button -> {
-            System.out.println("画像選択ボタン押された！");
+        // 画像選択ボタン（左側・水色）
+        this.addDrawableChild(ButtonWidget.builder(Text.of("画像選択"), btn -> {
+            System.out.println("画像選択ボタンが押されました");
         }).dimensions(leftX + padding, topY + padding + 20, buttonWidth, buttonHeight).build());
-
-        // 左上タイトル（JavaSkinChanger）は描画時に描画するのでここでは不要
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+
         // 背景（半透明黒）
         context.fill(leftX, topY, leftX + windowWidth, topY + windowHeight, 0xBF000000);
 
@@ -59,9 +58,31 @@ public class SkinChangeScreen extends Screen {
         int centerX = leftX + windowWidth / 2;
         context.fill(centerX - 1, topY, centerX + 1, topY + windowHeight, 0xFFD3D3D3);
 
+        // ★★★ ここで 3D プレイヤーモデルを描画 ★★★
+        drawPlayerModel(context, mouseX, mouseY);
+
         super.render(context, mouseX, mouseY, delta);
     }
 
+    private void drawPlayerModel(DrawContext context, int mouseX, int mouseY) {
+
+        // 表示位置（左側中央）
+        int modelX = leftX + (windowWidth / 4);
+        int modelY = topY + (windowHeight / 2) + 40;
+
+        // 3Dモデル描画
+        InventoryScreen.drawEntity(
+                context,
+                modelX,
+                modelY,
+                40, // 表示サイズ
+                (float)(modelX - mouseX),
+                (float)(modelY - mouseY),
+                client.player
+        );
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
     }
