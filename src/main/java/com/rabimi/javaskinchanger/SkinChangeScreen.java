@@ -15,11 +15,11 @@ public class SkinChangeScreen extends Screen {
     private int leftX;
     private int topY;
 
-    // MinecraftClient インスタンス
     private final MinecraftClient client = MinecraftClient.getInstance();
 
-    // デフォルトスキン
-    private final Identifier DEFAULT_SKIN = new Identifier("minecraft", "textures/entity/steve.png");
+    // ダミーのスキン
+    private final Identifier DEFAULT_SKIN = Identifier.tryParse("minecraft:textures/entity/steve.png");
+    private final Identifier ALEX_SKIN = Identifier.tryParse("minecraft:textures/entity/alex.png");
 
     public SkinChangeScreen(Text title) {
         super(title);
@@ -32,29 +32,21 @@ public class SkinChangeScreen extends Screen {
         leftX = (this.width - WINDOW_WIDTH) / 2;
         topY = (this.height - WINDOW_HEIGHT) / 2;
 
-        // Change Skin ボタン
+        // Change Skin ボタン（ローカル表示のみ）
         this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
-            // ここでスキンURLを指定してスキン変更
-            // 例: https://crafatar.com/avatars/<UUID>
-            client.player.setSkin(new Identifier("minecraft", "textures/entity/alex.png"));
+            client.player.sendMessage(Text.of("Change Skin押された！"), false);
         }).dimensions(leftX + 10, topY + 40, 80, 20).build());
 
-        // Reset Skin ボタン
+        // Reset Skin ボタン（ローカル表示のみ）
         this.addDrawableChild(ButtonWidget.builder(Text.of("Reset Skin"), button -> {
-            // デフォルトスキンに戻す
-            client.player.setSkin(DEFAULT_SKIN);
+            client.player.sendMessage(Text.of("Reset Skin押された！"), false);
         }).dimensions(leftX + 110, topY + 40, 80, 20).build());
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 背景半透明
         context.fill(leftX, topY, leftX + WINDOW_WIDTH, topY + WINDOW_HEIGHT, 0xBF000000);
-
-        // タイトル描画
         context.drawText(this.textRenderer, this.title, leftX + 5, topY + 5, 0xFFFFFF, false);
-
-        // ボタン描画
         super.render(context, mouseX, mouseY, delta);
     }
 }

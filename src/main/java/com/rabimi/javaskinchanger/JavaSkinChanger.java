@@ -27,7 +27,7 @@ public class JavaSkinChanger implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (openMenuKey.wasPressed()) {
-                client.setScreen(new SkinChangeScreen());
+                client.setScreen(new SkinChangeScreen(Text.of("JavaSkinChanger")));
             }
         });
 
