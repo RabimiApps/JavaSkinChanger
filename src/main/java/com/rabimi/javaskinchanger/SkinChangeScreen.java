@@ -29,19 +29,26 @@ public class SkinChangeScreen extends Screen {
     protected void init() {
         super.init();
 
-        leftX = (this.width - WINDOW_WIDTH) / 2; 
-        topY  = (this.height - WINDOW_HEIGHT)/ 2;
+        int windowWidth = Math.min((int)(this.width * 0.6), 450);
+        int windowHeight = Math.min((int)(this.height * 0.4), 275);
 
-        // Change Skin ボタン（ローカル表示のみ）
+        leftX = (this.width - windowWidth) / 2;
+        topY  = (this.height - windowHeight) / 2;
+
+        int buttonWidth = 80;
+        int buttonHeight = 20;
+        int padding = 10;
+
+    
         this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
             client.player.sendMessage(Text.of("Change Skin押された！"), false);
-        }).dimensions(leftX + 10, topY + 40, 80, 20).build());
+        }).dimensions(leftX + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
 
-        // Reset Skin ボタン（ローカル表示のみ）
         this.addDrawableChild(ButtonWidget.builder(Text.of("Reset Skin"), button -> {
             client.player.sendMessage(Text.of("Reset Skin押された！"), false);
-        }).dimensions(leftX + 110, topY + 40, 80, 20).build());
+        }).dimensions(leftX + padding + buttonWidth + padding, topY + padding + 30, buttonWidth, buttonHeight).build());
     }
+
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
