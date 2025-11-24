@@ -5,12 +5,11 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.Vector3f;
-import net.minecraft.client.util.math.Quaternionf;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.minecraft.client.player.ClientPlayerEntity;
+import net.minecraft.client.player.AbstractClientPlayerEntity;
+import com.mojang.math.Vector3f;
+import com.mojang.math.Quaternion;
 
 public class SkinChangeScreen extends Screen {
 
@@ -45,7 +44,6 @@ public class SkinChangeScreen extends Screen {
 
         // 左側の画像選択ボタン（水色）
         this.addDrawableChild(ButtonWidget.builder(Text.of("画像選択"), btn -> {
-            // Android同期やファイル選択用の処理をここに呼ぶ
             selectSkinFromAndroid();
         }).dimensions(leftX + padding, topY + padding + 20, buttonWidth, buttonHeight).build());
     }
@@ -70,18 +68,15 @@ public class SkinChangeScreen extends Screen {
     }
 
     private void drawPlayerModel(DrawContext context, int mouseX, int mouseY) {
-        ClientPlayerEntity player = client.player;
+        AbstractClientPlayerEntity player = client.player;
         if(player == null) return;
 
-        // 表示位置
         int modelX = leftX + windowWidth / 4;
         int modelY = topY + windowHeight / 2 + 40;
 
-        // マウス追従角度
         float yaw = (float)(modelX - mouseX);
         float pitch = (float)(modelY - mouseY);
 
-        // drawEntity（Minecraft 1.21.x 用）
         InventoryScreen.drawEntity(
                 context,
                 modelX,
@@ -94,15 +89,12 @@ public class SkinChangeScreen extends Screen {
     }
 
     private void selectSkinFromAndroid() {
-        // Android 側からスキンデータを受け取る処理
-        // currentSkinTexture にセットして、次回描画時に反映されるようにする
-        // 例：
-        // currentSkinTexture = new Identifier("javaskinchanger", "custom_skin");
+        // Android からスキンを受け取り currentSkinTexture にセットする
         System.out.println("Androidからスキン取得処理呼ばれた");
     }
 
     @Override
-    public boolean isPauseScreen() {
+    public boolean shouldPause() {
         return false;
     }
 }
