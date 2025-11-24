@@ -9,8 +9,8 @@ import net.minecraft.util.Identifier;
 
 public class SkinChangeScreen extends Screen {
 
-    private static final int WINDOW_WIDTH = 200;
-    private static final int WINDOW_HEIGHT = 100;
+    private static final int WINDOW_WIDTH = 350;
+    private static final int WINDOW_HEIGHT = 250;
 
     private int leftX;
     private int topY;
@@ -29,8 +29,8 @@ public class SkinChangeScreen extends Screen {
     protected void init() {
         super.init();
 
-        leftX = (this.width - WINDOW_WIDTH) / 2;
-        topY = (this.height - WINDOW_HEIGHT) / 2;
+        leftX = (this.width - WINDOW_WIDTH) / 1.5;
+        topY = (this.height - WINDOW_HEIGHT) / 1.5;
 
         // Change Skin ボタン（ローカル表示のみ）
         this.addDrawableChild(ButtonWidget.builder(Text.of("Change Skin"), button -> {
