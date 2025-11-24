@@ -5,11 +5,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.client.player.AbstractClientPlayerEntity;
-import com.mojang.math.Vector3f;
-import com.mojang.math.Quaternion;
 
 public class SkinChangeScreen extends Screen {
 
@@ -21,7 +18,6 @@ public class SkinChangeScreen extends Screen {
     private int leftX;
     private int topY;
 
-    private Identifier currentSkinTexture; // 選択中スキン
     private final MinecraftClient client = MinecraftClient.getInstance();
 
     public SkinChangeScreen(Text title) {
@@ -32,6 +28,7 @@ public class SkinChangeScreen extends Screen {
     protected void init() {
         super.init();
 
+        // ウィンドウサイズを画面に合わせて調整
         windowWidth = Math.min((int)(this.width * 0.6), MAX_WIDTH);
         windowHeight = Math.min((int)(this.height * 0.4), MAX_HEIGHT);
 
@@ -42,15 +39,15 @@ public class SkinChangeScreen extends Screen {
         int buttonHeight = 25;
         int padding = 10;
 
-        // 左側の画像選択ボタン（水色）
+        // 左側・水色 画像選択ボタン
         this.addDrawableChild(ButtonWidget.builder(Text.of("画像選択"), btn -> {
-            selectSkinFromAndroid();
+            System.out.println("画像選択ボタン押下");
+            // ここで将来的にスキン変更処理を呼べます
         }).dimensions(leftX + padding, topY + padding + 20, buttonWidth, buttonHeight).build());
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-
         // 背景（半透明黒）
         context.fill(leftX, topY, leftX + windowWidth, topY + windowHeight, 0xBF000000);
 
@@ -61,40 +58,26 @@ public class SkinChangeScreen extends Screen {
         int centerX = leftX + windowWidth / 2;
         context.fill(centerX - 1, topY, centerX + 1, topY + windowHeight, 0xFFD3D3D3);
 
-        // 3Dプレイヤーモデル描画（左側）
+        // 左側に3Dプレイヤーモデル表示
         drawPlayerModel(context, mouseX, mouseY);
 
         super.render(context, mouseX, mouseY, delta);
     }
 
     private void drawPlayerModel(DrawContext context, int mouseX, int mouseY) {
-        AbstractClientPlayerEntity player = client.player;
-        if(player == null) return;
+        ClientPlayerEntity player = client.player;
+        if (player == null) return;
 
+        // 表示位置（左側中央）
         int modelX = leftX + windowWidth / 4;
         int modelY = topY + windowHeight / 2 + 40;
 
-        float yaw = (float)(modelX - mouseX);
-        float pitch = (float)(modelY - mouseY);
-
-        InventoryScreen.drawEntity(
-                context,
-                modelX,
-                modelY,
-                40, // スケール
-                yaw,
-                pitch,
-                player
-        );
-    }
-
-    private void selectSkinFromAndroid() {
-        // Android からスキンを受け取り currentSkinTexture にセットする
-        System.out.println("Androidからスキン取得処理呼ばれた");
+        // 3Dモデル描画
+        InventoryScreen.drawEntity(context, modelX, modelY, 40, (float)(modelX - mouseX), (float)(modelY - mouseY), player);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }
