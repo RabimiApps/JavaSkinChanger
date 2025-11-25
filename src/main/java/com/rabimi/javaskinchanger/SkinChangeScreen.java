@@ -2,85 +2,129 @@ package com.rabimi.javaskinchanger;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.math.MathHelper;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 @Environment(EnvType.CLIENT)
 public class SkinChangeScreen extends Screen {
 
     private final MinecraftClient client;
-    private Identifier customSkinId;
+
+    // モデル回転用
+    private float modelYaw = 0;
+    private float prevMouseX;
+    private boolean dragging = false;
+
+    // 新しいスキンID
+    private Identifier previewSkinId = null;
 
     protected SkinChangeScreen() {
-        super(Text.of("Skin Changer"));
+        super(Text.of("JavaSkinChanger"));
         this.client = MinecraftClient.getInstance();
     }
 
     @Override
     protected void init() {
-        super.init();
 
-        // ボタン追加 (NarrationSupplier も必須)
-        this.addDrawableChild(new ButtonWidget(
-                10, 10, 150, 20,
-                Text.of("Upload Skin"),
-                button -> openSkinFile(),
-                () -> Text.of("Upload a custom skin PNG")
-        ));
+        // ファイル選択ボタン
+        addDrawableChild(ButtonWidget.builder(Text.of("Select Skin PNG"), btn -> selectSkin())
+                .dimensions(10, 10, 150, 20).build());
+
+        // 適用ボタン
+        addDrawableChild(ButtonWidget.builder(Text.of("Apply"), btn -> applySkin())
+                .dimensions(10, 40, 150, 20).build());
     }
 
-    // ファイル選択 & 64x64 にリサイズして NativeImage に変換
-    private void openSkinFile() {
-        // 実際は JFileChooser などでファイルを選択
-        File tmpFile = new File("config/custom_skin.png");
+    /**
+     * Cross-platform ファイル選択（Linux/Android/Switchrootでも動く）
+     */
+    private void selectSkin() {
+        FileDialogHelper.open("Select PNG file", path -> {
+            if (path == null) return;
 
-        if (!tmpFile.exists()) return;
+            File f = new File(path);
+            loadPreviewSkin(f);
 
+            // config/jsc/skin.png に保存
+            File target = new File("config/jsc/skin.png");
+            target.getParentFile().mkdirs();
+            try {
+                java.nio.file.Files.copy(f.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /**
+     * PNG → 64x64 → Texture登録
+     */
+    private void loadPreviewSkin(File file) {
         try {
-            // PNG → NativeImage
-            NativeImage nativeImage = NativeImage.fromFile(tmpFile);
+            NativeImage img = NativeImage.read(file);
+            NativeImage resized = new NativeImage(64, 64, true);
+            img.resizeTo(resized);
+            img.close();
+            img = resized;
 
-            // 64x64にリサイズ
-            if (nativeImage.getWidth() != 64 || nativeImage.getHeight() != 64) {
-                NativeImage resized = new NativeImage(64, 64, true);
-                nativeImage.copyRect(resized, 0, 0, 0, 0, Math.min(nativeImage.getWidth(), 64), Math.min(nativeImage.getHeight(), 64));
-                nativeImage.close();
-                nativeImage = resized;
-            }
+            previewSkinId = new Identifier("javaskinchanger", "preview");
 
-            // Texture登録
-            customSkinId = new Identifier("javaskinchanger", "customskin");
-            client.getTextureManager().registerTexture(customSkinId, new NativeImageBackedTexture(nativeImage));
+            NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
+            client.getTextureManager().registerTexture(previewSkinId, tex);
 
-            // プレイヤーに適用
-            if (client.player != null) {
-                client.player.setSkinTexture(customSkinId);
-            }
-
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    @Override
-    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-        this.renderBackground(matrices); // 背景描画
-        super.render(matrices, mouseX, mouseY, delta);
+    /**
+     * Mixinへ適用
+     */
+    private void applySkin() {
+        SkinCache.customSkin = previewSkinId;
+    }
 
-        // プレイヤー立体描画
-        if (client.player != null) {
-            // ここは簡易版、EntityRendererに依存せず MatrixStack + RenderSystemで描画
-            // 3D描画の詳細はPlayerEntityRendererを直接呼ぶ必要あり
-        }
+    @Override
+    public void render(DrawContext dc, int mouseX, int mouseY, float delta) {
+        renderBackground(dc);
+
+        super.render(dc, mouseX, mouseY, delta);
+
+        // --- 3Dモデル ---
+        drawPlayer(dc);
+
+        // --- 現在使用中のスキン or プレビュー ---
+        Identifier skin = (previewSkinId != null)
+                ? previewSkinId
+                : client.player.getSkinTexture();
+
+        dc.drawTexture(skin, width - 100, 20, 0, 0, 64, 64, 64, 64);
+    }
+
+    private void drawPlayer(DrawContext dc) {
+        if (client.player == null) return;
+
+        int x = width / 2 - 50;
+        int y = height - 20;
+
+        // InventoryScreen の公式メソッド（最新版）
+        dc.drawEntity(x, y, 60, modelYaw, -modelYaw, client.player);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        modelYaw += dx * 0.5f;
+        return true;
     }
 }
