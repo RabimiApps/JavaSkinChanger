@@ -18,7 +18,7 @@ public class JavaSkinChanger implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
 
-        MinecraftClient.getInstance().execute() -> {
+        MinecraftClient.getInstance().execute(); -> {
             MinecraftClient client = MinecraftClient.getInstance();
 
 
@@ -39,4 +39,5 @@ public class JavaSkinChanger implements ClientModInitializer {
 
         System.out.println("[JavaSkinChanger] Loaded!");
     }
+ }
 }
