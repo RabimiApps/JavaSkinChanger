@@ -1,17 +1,14 @@
 package com.rabimi.javaskinchanger;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.entity.EntityRenderHelper;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 public class SkinChangeScreen extends Screen {
-
-    private static final Identifier DEFAULT_SKIN = Identifier.of("textures/entity/player/wide/steve.png");
-    private Identifier selectedSkin = null;
 
     public SkinChangeScreen() {
         super(Text.literal("Skin Changer"));
@@ -20,16 +17,16 @@ public class SkinChangeScreen extends Screen {
     @Override
     protected void init() {
 
-        // スキン選択ボタン
+        // スキン選択
         this.addDrawableChild(
-                ButtonWidget.builder(Text.literal("スキンを選択"), (btn) -> {
-                    // TODO: ファイル選択画面を開く処理
+                ButtonWidget.builder(Text.literal("スキン選択"), b -> {
+                    // TODO: ファイル選択画面
                 }).dimensions(this.width / 2 - 60, this.height / 2 - 20, 120, 20).build()
         );
 
         // 適用ボタン
         this.addDrawableChild(
-                ButtonWidget.builder(Text.literal("適用する"), (btn) -> {
+                ButtonWidget.builder(Text.literal("適用"), b -> {
                     applySkin();
                 }).dimensions(this.width / 2 - 60, this.height / 2 + 10, 120, 20).build()
         );
@@ -37,36 +34,37 @@ public class SkinChangeScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context);
+        // 正しい renderBackground
+        this.renderBackground(context, mouseX, mouseY, delta);
 
-        // 3Dモデル表示
-        renderPlayerModel(context);
+        drawPlayer3D(context);
 
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private void renderPlayerModel(DrawContext context) {
+    private void drawPlayer3D(DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
-
         if (player == null) return;
 
         int x = this.width / 2;
         int y = this.height / 2 - 60;
 
-        // ↓1.21.5 での 3D エンティティ描画（LivingEntity 不要）
-        context.drawEntity(x, y, 45, 0, 0, player);
+        // 1.21.5 正式API
+        EntityRenderHelper.renderEntity(
+                context,
+                x, y, // 表示位置
+                40,   // スケール
+                0f,   // マウスXオフセット（回転に使える）
+                0f,   // マウスYオフセット
+                player
+        );
     }
 
     private void applySkin() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
-        Identifier skin = selectedSkin != null ? selectedSkin : DEFAULT_SKIN;
-
-        // TODO: スキン変更処理
-        System.out.println("Apply Skin: " + skin);
-
-        client.player.sendMessage(Text.literal("スキンを変更しました！"));
+        client.player.sendMessage(Text.literal("スキン変更しました！"), false);
     }
 }
