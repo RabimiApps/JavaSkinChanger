@@ -1,95 +1,97 @@
 package com.rabimi.javaskinchanger;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.util.Identifier;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.text.Text;
-
-import javax.swing.*;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.function.Supplier;
+import net.minecraft.util.math.Quaternion;
+import net.minecraft.util.math.Vec3f;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 
 @Environment(EnvType.CLIENT)
 public class SkinChangeScreen extends Screen {
 
-    private final MinecraftClient client = MinecraftClient.getInstance();
-    private NativeImageBackedTexture customSkinTexture;
+    private MinecraftClient client;
+    private AbstractClientPlayerEntity player;
+    private Identifier customSkinId;
 
     protected SkinChangeScreen() {
         super(Text.of("JavaSkinChanger"));
+        this.client = MinecraftClient.getInstance();
+        this.player = client.player;
+        this.customSkinId = null;
     }
 
     @Override
-    public void init() {
-        // ファイル選択ボタン
-        this.addDrawableChild(new ButtonWidget(10, 10, 150, 20, Text.of("Upload Skin"), button -> openSkinFile()));
+    protected void init() {
+        int y = 20;
+
+        this.addDrawableChild(new ButtonWidget(
+                10, y, 150, 20,
+                Text.of("Upload Skin"),
+                button -> openSkinFile(),
+                () -> Text.of("Upload a custom skin PNG")
+        ));
     }
 
     private void openSkinFile() {
-        // Java Swingファイル選択ダイアログ
-        JFileChooser chooser = new JFileChooser();
-        int result = chooser.showOpenDialog(null);
-        if(result != JFileChooser.APPROVE_OPTION) return;
-
-        File file = chooser.getSelectedFile();
         try {
-            BufferedImage buffered = ImageIO.read(file);
-            // 64x64にリサイズ
+            File file = new File(System.getProperty("user.home") + "/skin.png");
+            if (!file.exists()) return;
+
+            BufferedImage original = ImageIO.read(file);
             BufferedImage resized = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
-            resized.getGraphics().drawImage(buffered, 0, 0, 64, 64, null);
+            Graphics2D g = resized.createGraphics();
+            g.drawImage(original, 0, 0, 64, 64, null);
+            g.dispose();
 
-            NativeImage image = NativeImage.fromBufferedImage(resized);
-            Supplier<String> supplier = () -> "javaskinchanger/customskin";
-            customSkinTexture = new NativeImageBackedTexture(supplier, image);
+            // 保存してNativeImageに読み込む
+            File tmpFile = new File(System.getProperty("java.io.tmpdir"), "tmp_skin.png");
+            ImageIO.write(resized, "PNG", tmpFile);
+            customSkinId = new Identifier("javaskinchanger", "customskin");
+            client.getTextureManager().registerTexture(customSkinId, net.minecraft.client.texture.NativeImageBackedTexture.read(tmpFile));
+            
+            // プレイヤーに適用
+            player.setSkinTexture(customSkinId);
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     @Override
-    public void render(MatrixStack matrices, int mouseX, int mouseY, float tickDelta) {
-        this.renderBackground(matrices, 0, 0, tickDelta);
-        super.render(matrices, mouseX, mouseY, tickDelta);
-        renderPlayer3D(matrices, mouseX, mouseY, tickDelta);
-    }
+    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
+        this.renderBackground(matrices);
 
-    private void renderPlayer3D(MatrixStack matrices, int mouseX, int mouseY, float tickDelta) {
-        if(client.player == null) return;
+        super.render(matrices, mouseX, mouseY, delta);
 
-        AbstractClientPlayerEntity player = (AbstractClientPlayerEntity) client.player;
-        NativeImageBackedTexture texture = customSkinTexture;
+        // 3Dプレイヤー表示
+        int centerX = this.width / 2;
+        int centerY = this.height / 2 + 20;
 
-        EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
-        PlayerEntityRenderer renderer = (PlayerEntityRenderer) dispatcher.getRenderer(player);
+        float yaw = (float) (Math.sin(System.currentTimeMillis() * 0.002) * 30);
+        float pitch = 0;
 
-        matrices.push();
-        matrices.translate(200, 150, 1050);
-        matrices.scale(-30f, 30f, 30f);
-
-        float yaw = (float)Math.atan((200 - mouseX) / 40.0) * 20;
-        float pitch = (float)Math.atan((150 - mouseY) / 40.0) * 20;
-
-        if(texture != null) {
-            client.getTextureManager().registerTexture(new net.minecraft.util.Identifier("javaskinchanger/customskin"), texture);
-            player.setSkinTexture(new net.minecraft.util.Identifier("javaskinchanger/customskin"));
-        }
-
-        renderer.render(player, yaw, pitch, matrices, client.getBufferBuilders().getEntityVertexConsumers(), tickDelta);
-        matrices.pop();
+        LivingEntityRenderer<AbstractClientPlayerEntity, ?> renderer = 
+                (LivingEntityRenderer<AbstractClientPlayerEntity, ?>) client.getEntityRenderDispatcher().getRenderer(player);
+        renderer.render(
+                player,
+                yaw,
+                pitch,
+                matrices,
+                client.getBufferBuilders().getEntityVertexConsumers(),
+                delta
+        );
     }
 }
