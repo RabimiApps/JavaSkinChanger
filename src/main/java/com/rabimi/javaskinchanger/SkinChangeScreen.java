@@ -2,89 +2,71 @@ package com.rabimi.javaskinchanger;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 public class SkinChangeScreen extends Screen {
 
-    private static final int MAX_WIDTH = 450;
-    private static final int MAX_HEIGHT = 275;
+    private static final Identifier DEFAULT_SKIN = Identifier.of("textures/entity/player/wide/steve.png");
+    private Identifier selectedSkin = null;
 
-    private int windowWidth;
-    private int windowHeight;
-    private int leftX;
-    private int topY;
-
-    private final MinecraftClient client = MinecraftClient.getInstance();
-
-    public SkinChangeScreen(Text title) {
-        super(title);
+    public SkinChangeScreen() {
+        super(Text.literal("Skin Changer"));
     }
 
     @Override
     protected void init() {
-        super.init();
 
-        windowWidth = Math.min((int)(this.width * 0.6), MAX_WIDTH);
-        windowHeight = Math.min((int)(this.height * 0.4), MAX_HEIGHT);
+        // スキン選択ボタン
+        this.addDrawableChild(
+                ButtonWidget.builder(Text.literal("スキンを選択"), (btn) -> {
+                    // TODO: ファイル選択画面を開く処理
+                }).dimensions(this.width / 2 - 60, this.height / 2 - 20, 120, 20).build()
+        );
 
-        leftX = (this.width - windowWidth) / 2;
-        topY  = (this.height - windowHeight) / 2;
-
-        int buttonWidth = 120;
-        int buttonHeight = 25;
-        int padding = 10;
-
-        // 左下・水色 画像選択ボタン
-        this.addDrawableChild(ButtonWidget.builder(Text.of("画像選択"), btn -> {
-            System.out.println("画像選択ボタン押下");
-            // 将来的にスキン選択処理をここに
-        }).dimensions(leftX + padding, topY + windowHeight - buttonHeight - padding, buttonWidth, buttonHeight).build());
-    }
-
-    @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 背景（半透明黒）
-        context.fill(leftX, topY, leftX + windowWidth, topY + windowHeight, 0xBF000000);
-
-        // 左上タイトル
-        context.drawText(this.textRenderer, Text.of("JavaSkinChanger"), leftX + 5, topY + 5, 0xFFFFFF, false);
-
-        // 中央縦線（白っぽいグレー）
-        int centerX = leftX + windowWidth / 2;
-        context.fill(centerX - 1, topY, centerX + 1, topY + windowHeight, 0xFFD3D3D3);
-
-        // 左側に3Dプレイヤーモデル表示
-        drawPlayerModel(context, mouseX, mouseY);
-
-        super.render(context, mouseX, mouseY, delta);
-    }
-
-    private void drawPlayerModel(DrawContext context, int mouseX, int mouseY) {
-        if(client.player == null) return;
-
-        int modelX = leftX + windowWidth / 4;
-        int modelY = topY + windowHeight / 2 + 20;
-
-        // 3Dモデル描画
-        InventoryScreen.drawEntity(
-            context,
-            modelX,
-            modelY,
-            40, // サイズ
-            modelX - mouseX,
-            modelY - mouseY,
-            (LivingEntity) client.player
+        // 適用ボタン
+        this.addDrawableChild(
+                ButtonWidget.builder(Text.literal("適用する"), (btn) -> {
+                    applySkin();
+                }).dimensions(this.width / 2 - 60, this.height / 2 + 10, 120, 20).build()
         );
     }
 
     @Override
-    public boolean isPauseScreen() {
-        return false;
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        this.renderBackground(context);
+
+        // 3Dモデル表示
+        renderPlayerModel(context);
+
+        super.render(context, mouseX, mouseY, delta);
+    }
+
+    private void renderPlayerModel(DrawContext context) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientPlayerEntity player = client.player;
+
+        if (player == null) return;
+
+        int x = this.width / 2;
+        int y = this.height / 2 - 60;
+
+        // ↓1.21.5 での 3D エンティティ描画（LivingEntity 不要）
+        context.drawEntity(x, y, 45, 0, 0, player);
+    }
+
+    private void applySkin() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+
+        Identifier skin = selectedSkin != null ? selectedSkin : DEFAULT_SKIN;
+
+        // TODO: スキン変更処理
+        System.out.println("Apply Skin: " + skin);
+
+        client.player.sendMessage(Text.literal("スキンを変更しました！"));
     }
 }
