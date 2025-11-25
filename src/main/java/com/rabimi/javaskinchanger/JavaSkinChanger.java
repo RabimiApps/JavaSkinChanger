@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
@@ -16,6 +17,10 @@ public class JavaSkinChanger implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+
+        MinecraftClient.getInstance().execute() -> {
+            MinecraftClient client = MinecraftClient.getInstance();
+
 
         openMenuKey = KeyBindingHelper.registerKeyBinding(
                 new KeyBinding(
@@ -32,6 +37,6 @@ public class JavaSkinChanger implements ClientModInitializer {
             }
         });
 
-        System.out.println("JavaSkinChanger Fabric Loaded");
+        System.out.println("[JavaSkinChanger] Loaded!");
     }
 }

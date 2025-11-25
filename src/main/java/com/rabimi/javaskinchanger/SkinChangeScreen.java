@@ -1,70 +1,138 @@
 package com.rabimi.javaskinchanger;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.text.Text;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 
 public class SkinChangeScreen extends Screen {
 
+    private final MinecraftClient client;
+    private float modelYaw = 180f;
+    private float modelPitch = 0f;
+    private boolean dragging = false;
+
+    private NativeImageBackedTexture customSkinTexture = null;
+    private File selectedImage = null;
+
     public SkinChangeScreen() {
-        super(Text.literal("Skin Changer"));
+        super(Text.literal("JavaSkinChanger"));
+        this.client = MinecraftClient.getInstance();
     }
 
     @Override
     protected void init() {
 
-        // スキン選択
-        this.addDrawableChild(
-                ButtonWidget.builder(Text.literal("スキン選択"), b -> {
-                    // TODO: ファイル選択処理
-                }).dimensions(this.width / 2 - 60, this.height / 2 - 20, 120, 20).build()
-        );
+        int cx = this.width / 2;
 
-        // 適用
-        this.addDrawableChild(
-                ButtonWidget.builder(Text.literal("適用"), b -> {
-                    applySkin();
-                }).dimensions(this.width / 2 - 60, this.height / 2 + 10, 120, 20).build()
-        );
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("画像を選択"), (button) -> {
+            selectImage();
+        }).dimensions(cx - 60, 40, 120, 20).build());
+
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("スキン適用"), (button) -> {
+            applySkin();
+        }).dimensions(cx - 60, 70, 120, 20).build());
+    }
+
+    /** OSのファイルピッカーを開く（実質JavaFX無しでの簡易版） */
+    private void selectImage() {
+        try {
+            File dialog = new File("skin.png"); // GitHub Actions でも扱いやすい仮ファイル
+            if (dialog.exists()) {
+                selectedImage = dialog;
+                client.player.sendMessage(Text.literal("画像を選択しました: skin.png"), false);
+            } else {
+                client.player.sendMessage(Text.literal("skin.png を置いてください。"), false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Mojang APIに送らず、クライアント側に直接読み込む */
+    private void applySkin() {
+        if (selectedImage == null) {
+            client.player.sendMessage(Text.literal("画像が選択されていません"), false);
+            return;
+        }
+
+        try {
+            NativeImage image = NativeImage.read(Files.newInputStream(selectedImage.toPath()));
+            if (customSkinTexture != null) {
+                customSkinTexture.close();
+            }
+
+            customSkinTexture = new NativeImageBackedTexture(image);
+            client.getTextureManager().registerTexture(
+                    client.player.getSkinTexture(),
+                    customSkinTexture
+            );
+
+            client.player.sendMessage(Text.literal("スキンを変更しました！"), false);
+
+        } catch (IOException e) {
+            client.player.sendMessage(Text.literal("読み込み失敗"), false);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        dragging = true;
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        dragging = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (dragging) {
+            modelYaw += dx * 2f;
+            modelPitch += dy * 2f;
+        }
+        return super.mouseDragged(mx, my, button, dx, dy);
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-
-        this.renderBackground(context, mouseX, mouseY, delta);
-
-        drawPlayer3D(context);
+        this.renderBackground(context);
 
         super.render(context, mouseX, mouseY, delta);
-    }
 
-    private void drawPlayer3D(DrawContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
         if (player == null) return;
 
         int x = this.width / 2;
-        int y = this.height / 2 - 60;
+        int y = this.height - 20;
 
-        // 1.21.5 で動く確実な方法
-        InventoryScreen.drawEntity(
+        Quaternionf bodyRot = new Quaternionf().rotationY((float) Math.toRadians(modelYaw));
+        Quaternionf headRot = new Quaternionf().rotationX((float) Math.toRadians(modelPitch));
+
+        // === 正しい 1.21.5 の描画メソッド ===
+        net.minecraft.client.gui.screen.ingame.InventoryScreen.drawEntity(
                 context,
-                x, y,
-                45,       // スケール
-                0f, 0f,   // マウス回転（0固定）
+                (float) x,
+                (float) y,
+                50f,
+                new Vector3f(0f, 0f, 0f),
+                headRot,
+                bodyRot,
                 player
         );
-    }
-
-    private void applySkin() {
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.player != null) {
-            client.player.sendMessage(Text.literal("スキンを変更しました!"), false);
-        }
     }
 }
