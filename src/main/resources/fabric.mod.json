@@ -1,10 +1,15 @@
 {
   "schemaVersion": 1,
   "id": "javaskinchanger",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "name": "JavaSkinChanger",
   "description": "Change Minecraft skins easily with RabimiMod",
   "authors": ["RabimiApp"],
+    "contact": {
+    "homepage": "https://RabimiApps.github.io/JavaSkinChanger",
+    "sources": "https://github.com/RabimiApps/JavaSkinChanger/tree/mod"
+  },
+  "icon": "assets/javaskinchanger/icon.png",
   "entrypoints": {
     "client": [
       "com.rabimi.javaskinchanger.JavaSkinChanger"

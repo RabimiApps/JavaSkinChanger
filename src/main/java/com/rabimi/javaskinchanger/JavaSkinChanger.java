@@ -15,27 +15,21 @@ public class JavaSkinChanger implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        MinecraftClient.getInstance().execute(() -> {
-            MinecraftClient client = MinecraftClient.getInstance();
+        openMenuKey = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.javaskinchanger.open",
+                        InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_J,
+                        "category.javaskinchanger"
+                )
+        );
 
-            // キーバインド登録
-            openMenuKey = KeyBindingHelper.registerKeyBinding(
-                    new KeyBinding(
-                            "key.javaskinchanger.open",
-                            InputUtil.Type.KEYSYM,
-                            GLFW.GLFW_KEY_J,
-                            "category.javaskinchanger"
-                    )
-            );
-
-            // キー押下時にGUIを開く
-            ClientTickEvents.END_CLIENT_TICK.register(c -> {
-                if (openMenuKey.wasPressed()) {
-                    client.setScreen(new SkinChangeScreen());
-                }
-            });
-
-            System.out.println("[JavaSkinChanger] Loaded!");
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if(openMenuKey.wasPressed()) {
+                client.setScreen(new SkinChangeScreen());
+            }
         });
+
+        System.out.println("[JavaSkinChanger] Loaded!");
     }
 }
