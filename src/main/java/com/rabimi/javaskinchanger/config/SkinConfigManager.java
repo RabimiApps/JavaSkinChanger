@@ -26,7 +26,7 @@ public class SkinConfigManager {
                 save();
                 return;
             }
-            SkinConfig data = GSON.fromJson(new FileReader(configFile), SkinConfig.class);
+            SkinConfigManager data = GSON.fromJson(new FileReader(configFile), SkinConfig.class);
             if (data != null) skinPaths = data.skinPaths;
         } catch (Exception e) {
             e.printStackTrace();
