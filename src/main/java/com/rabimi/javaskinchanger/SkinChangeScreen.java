@@ -14,7 +14,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
 import net.minecraft.text.MutableText;
 
 import javax.imageio.ImageIO;
@@ -45,7 +45,7 @@ public class SkinChangeScreen extends Screen {
     private boolean scrolling = false;
 
     protected SkinChangeScreen() {
-        super(new LiteralText("JavaSkinChanger"));
+        super(Text.literal("JavaSkinChanger"));
         this.client = MinecraftClient.getInstance();
     }
 
@@ -55,16 +55,16 @@ public class SkinChangeScreen extends Screen {
 
         this.addDrawableChild(new ButtonWidget(
                 10, 10, 150, 20,
-                new LiteralText("Upload Skin"),
+                Text.literal("Upload Skin"),
                 button -> openSkinFile(),
-                () -> (MutableText) new LiteralText("Upload a custom skin PNG")
+                () -> Text.literal("Upload a custom skin PNG")
         ));
 
         this.addDrawableChild(new ButtonWidget(
                 170, 10, 150, 20,
-                new LiteralText("Fetch Mojang Skin"),
+                Text.literal("Fetch Mojang Skin"),
                 button -> fetchMojangSkin(),
-                () -> (MutableText) new LiteralText("Fetch skin from official API")
+                () -> Text.literal("Fetch skin from official API")
         ));
     }
 
@@ -97,8 +97,8 @@ public class SkinChangeScreen extends Screen {
             resized.getGraphics().drawImage(buffered, 0, 0, 64, 64, null);
 
             NativeImage image = NativeImage.read(toInputStream(resized));
-            customSkinTexture = new NativeImageBackedTexture(image);
-            customSkinId = Identifier.tryParse("javaskinchanger:" + idName);
+            customSkinTexture = new NativeImageBackedTexture(() -> idName, image);
+            customSkinId = new Identifier("javaskinchanger", idName);
 
             client.getTextureManager().registerTexture(customSkinId, customSkinTexture);
             applyTextureToPlayer(client.player, customSkinId);
@@ -133,8 +133,8 @@ public class SkinChangeScreen extends Screen {
 
                 BufferedImage skinImg = ImageIO.read(new URL(skinUrl));
                 NativeImage image = NativeImage.read(toInputStream(skinImg));
-                customSkinTexture = new NativeImageBackedTexture(image);
-                customSkinId = Identifier.tryParse("javaskinchanger:mojangskin");
+                customSkinTexture = new NativeImageBackedTexture(() -> "mojangskin", image);
+                customSkinId = new Identifier("javaskinchanger", "mojangskin");
 
                 client.execute(() -> {
                     client.getTextureManager().registerTexture(customSkinId, customSkinTexture);
@@ -159,10 +159,9 @@ public class SkinChangeScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context);
+        this.renderBackground(context, 0, 0, delta); // 新APIに合わせる
         super.render(context, mouseX, mouseY, delta);
 
-        // 横スクロールスキンリスト
         int startX = 10 - scrollOffset;
         int y = 100;
         int thumbSize = 32;
@@ -173,8 +172,8 @@ public class SkinChangeScreen extends Screen {
             try {
                 BufferedImage img = ImageIO.read(f);
                 NativeImage texImg = NativeImage.read(toInputStream(img));
-                Identifier texId = Identifier.tryParse("javaskinchanger:thumb" + i);
-                client.getTextureManager().registerTexture(texId, new NativeImageBackedTexture(texImg));
+                Identifier texId = new Identifier("javaskinchanger", "thumb" + i);
+                client.getTextureManager().registerTexture(texId, new NativeImageBackedTexture(() -> "thumb" + i, texImg));
 
                 context.drawTexture(texId, startX + i * (thumbSize + padding), y, 0, 0, img.getWidth(), img.getHeight(), thumbSize, thumbSize);
 
@@ -187,8 +186,7 @@ public class SkinChangeScreen extends Screen {
 
                 if (mouseX >= startX + i * (thumbSize + padding) && mouseX <= startX + i * (thumbSize + padding) + thumbSize &&
                     mouseY >= y && mouseY <= y + thumbSize &&
-                    client.mouse.isLeftPressed()) {
-
+                    client.mouse.isCursorLocked()) { // isLeftPressed → isCursorLocked に変更
                     selectedSkinIndex = i;
                     applySkinFile(f, "localskin" + i);
                 }
@@ -198,7 +196,6 @@ public class SkinChangeScreen extends Screen {
             }
         }
 
-        // プレイヤー3Dプレビュー
         if (client.player != null) {
             EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
             PlayerEntityRenderer renderer = (PlayerEntityRenderer) dispatcher.getRenderer(client.player);
@@ -237,8 +234,8 @@ public class SkinChangeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) rotating = true;    // 左クリックで回転
-        if (button == 1) scrolling = true;   // 右クリックでスクロール
+        if (button == 0) rotating = true;
+        if (button == 1) scrolling = true;
         lastMouseX = mouseX;
         lastMouseY = mouseY;
         return super.mouseClicked(mouseX, mouseY, button);
