@@ -8,7 +8,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SkinConfig {
+public class SkinConfigManager {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static File configFile;
@@ -35,7 +35,7 @@ public class SkinConfig {
 
     public static void save() {
         try (FileWriter writer = new FileWriter(configFile)) {
-            GSON.toJson(new SkinConfig(), writer);
+            GSON.toJson(new SkinConfigManager(), writer);
         } catch (Exception e) {
             e.printStackTrace();
         }
