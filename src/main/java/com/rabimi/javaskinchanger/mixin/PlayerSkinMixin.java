@@ -1,29 +1,25 @@
 package com.rabimi.javaskinchanger.mixin;
 
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.util.Identifier;
+import com.rabimi.javaskinchanger.SkinChangeScreen;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.entity.PlayerRenderer;
+import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-@Mixin(AbstractClientPlayerEntity.class)
+@Mixin(AbstractClientPlayer.class)
 public class PlayerSkinMixin {
 
-    @Redirect(
-        method = "getSkinTexture", // Yarn mapping に合わせる
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/network/AbstractClientPlayerEntity;getSkinTexture()Lnet/minecraft/util/Identifier;"
-        )
-    )
-    private Identifier redirectSkin(AbstractClientPlayerEntity instance) {
-        // 独自スキンがあれば返す
-        Identifier custom = SkinManager.getCustomSkin(instance.getUuid());
-        if (custom != null) return custom;
-
-        // それ以外は元メソッド呼ぶ
-        return instance.getClass().getMethod("getSkin", null) != null ?
-                (Identifier) instance.getClass().getMethod("getSkin").invoke(instance)
-                : null;
+    @Redirect(method = "getSkinTexture", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/PlayerRenderer;bindTexture(Lnet/minecraft/resources/ResourceLocation;)V"))
+    private void redirectSkin(PlayerRenderer renderer, ResourceLocation original) {
+        // SkinChangeScreenで選んだスキンがあれば返す
+        ResourceLocation custom = SkinChangeScreen.getCustomSkin();
+        if (custom != null) {
+            renderer.bindTexture(custom);
+        } else {
+            renderer.bindTexture(original);
+        }
     }
 }
