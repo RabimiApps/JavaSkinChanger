@@ -2,62 +2,42 @@ package com.rabimi.javaskinchanger.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.rabimi.javaskinchanger.SkinCache;
-import net.minecraft.util.Identifier;
-
-import java.io.*;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SkinConfigManager {
+public class SkinConfig {
 
-    private static final File CONFIG_DIR = new File("config/jsc");
-    private static final File CONFIG_FILE = new File(CONFIG_DIR, "skins.json");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static File configFile;
 
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    public static List<String> skinPaths = new ArrayList<>();
 
-    public static SkinData data = new SkinData();
-
-    public static class SkinData {
-        public List<String> skins = new ArrayList<>();
-        public int selected = 0;
+    public static void init(File configDir) {
+        configFile = new File(configDir, "skins.json");
+        load();
     }
 
     public static void load() {
         try {
-            if (!CONFIG_FILE.exists()) {
+            if (!configFile.exists()) {
                 save();
                 return;
             }
-            data = gson.fromJson(new FileReader(CONFIG_FILE), SkinData.class);
+            SkinConfig data = GSON.fromJson(new FileReader(configFile), SkinConfig.class);
+            if (data != null) skinPaths = data.skinPaths;
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     public static void save() {
-        try {
-            CONFIG_DIR.mkdirs();
-            FileWriter writer = new FileWriter(CONFIG_FILE);
-            gson.toJson(data, writer);
-            writer.close();
+        try (FileWriter writer = new FileWriter(configFile)) {
+            GSON.toJson(new SkinConfig(), writer);
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public static void addSkin(String texturePath) {
-        data.skins.add(texturePath);
-        save();
-    }
-
-    public static void select(int index) {
-        data.selected = index;
-        save();
-    }
-
-    public static Identifier getSelectedSkinId() {
-        if (data.skins.isEmpty()) return null;
-        return new Identifier("javaskinchanger", "slot_" + data.selected);
     }
 }
