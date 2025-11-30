@@ -38,3 +38,10 @@ sourceSets {
         }
     }
 }
+minecraft {
+    runConfigs {
+        client {
+            client = true
+        }
+    }
+}
