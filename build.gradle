@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.13.6' // ← 安定版
+    id 'fabric-loom' version '1.13-SNAPSHOT' // ← 安定版
     id 'java'
 }
 
