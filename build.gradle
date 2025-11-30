@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.13-SNAPSHOT'
+    id 'fabric-loom' version '1.13.6' // ← 安定版
     id 'java'
 }
 
@@ -13,27 +13,21 @@ repositories {
 }
 
 dependencies {
-    // Minecraft 1.21.5
     minecraft "com.mojang:minecraft:1.21.5"
-    
-    // Yarn 1.21.5
     mappings "net.fabricmc:yarn:1.21.5+build.1:v2"
-    
-    // Fabric Loader 0.18.1
     modImplementation "net.fabricmc:fabric-loader:0.18.1"
-
-    // Fabric API for 1.21.5
     modImplementation "net.fabricmc.fabric-api:fabric-api:0.128.2+1.21.5"
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(17) // ← Java 17 に変更
     }
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
 }
+
 sourceSets {
     main {
         java {
@@ -41,8 +35,9 @@ sourceSets {
         }
     }
 }
+
 minecraft {
-    runConfigs {
+    runs {
         client {
             client = true
         }
