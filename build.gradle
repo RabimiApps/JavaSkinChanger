@@ -30,3 +30,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
     withSourcesJar()
 }
+sourceSets {
+    main {
+        java {
+            srcDirs = ["src/main/java"]
+        }
+    }
+}
