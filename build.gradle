@@ -36,7 +36,7 @@ sourceSets {
     }
 }
 
-sourceSet {
+sourceSets {
     runs {
         client {
             client = true
