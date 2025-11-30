@@ -7,10 +7,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.entity.PlayerRenderer;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.ResourceLocation;
@@ -29,7 +26,6 @@ import java.util.Base64;
 @Environment(EnvType.CLIENT)
 public class SkinChangeScreen extends Screen {
     private final Minecraft client = Minecraft.getInstance();
-    private ResourceLocation customSkin;
     private final ArrayList<File> localSkins = new ArrayList<>();
     private int selectedIndex = -1;
     private int scrollOffset = 0;
@@ -43,6 +39,9 @@ public class SkinChangeScreen extends Screen {
     private boolean scrolling = false;
 
     private boolean useAlex = false; // Steve/Alex切替
+
+    // 追加: 現在選択中のカスタムスキン
+    private static ResourceLocation currentCustomSkin;
 
     protected SkinChangeScreen() {
         super(Component.literal("JavaSkinChanger"));
@@ -86,6 +85,7 @@ public class SkinChangeScreen extends Screen {
         applySkin(file);
     }
 
+    // 追加: applySkinを static 管理用に統合
     private void applySkin(File file) {
         try {
             BufferedImage img = ImageIO.read(file);
@@ -93,14 +93,19 @@ public class SkinChangeScreen extends Screen {
             resized.getGraphics().drawImage(img, 0, 0, 64, 64, null);
 
             NativeImage nativeImage = NativeImage.read(toInputStream(resized));
-            customSkin = new ResourceLocation("javaskinchanger", "customskin");
-            client.getTextureManager().register(customSkin, new net.minecraft.client.renderer.texture.NativeImageTexture(nativeImage));
+            ResourceLocation skin = new ResourceLocation("javaskinchanger", "customskin");
+            client.getTextureManager().register(skin, new net.minecraft.client.renderer.texture.NativeImageTexture(nativeImage));
 
-            applySkinToPlayer(client.player, customSkin);
+            currentCustomSkin = skin;  // ←ここで static 保存
+            applySkinToPlayer(client.player, skin);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static ResourceLocation getCustomSkin() {
+        return currentCustomSkin;
     }
 
     private void fetchMojangSkin() {
@@ -132,11 +137,12 @@ public class SkinChangeScreen extends Screen {
 
                 BufferedImage img = ImageIO.read(new URL(skinUrl));
                 NativeImage nativeImage = NativeImage.read(toInputStream(img));
-                customSkin = new ResourceLocation("javaskinchanger", "mojangskin");
+                ResourceLocation skin = new ResourceLocation("javaskinchanger", "mojangskin");
 
                 client.execute(() -> {
-                    client.getTextureManager().register(customSkin, new net.minecraft.client.renderer.texture.NativeImageTexture(nativeImage));
-                    applySkinToPlayer(client.player, customSkin);
+                    client.getTextureManager().register(skin, new net.minecraft.client.renderer.texture.NativeImageTexture(nativeImage));
+                    currentCustomSkin = skin; // ←static保存
+                    applySkinToPlayer(client.player, skin);
                 });
 
             } catch (Exception e) {
@@ -193,7 +199,6 @@ public class SkinChangeScreen extends Screen {
             }
         }
 
-        // 3DプレイヤープレビューはMixinでカスタムレンダー適用
         super.render(matrices, mouseX, mouseY, delta);
     }
 
