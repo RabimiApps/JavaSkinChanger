@@ -1,7 +1,5 @@
 package com.rabimi.javaskinchanger;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -24,53 +22,34 @@ import java.util.ArrayList;
 import java.util.Base64;
 
 @Environment(EnvType.CLIENT)
-public class SkinChangeScreen extends Screen {
+public class SkinChangeScreen2D extends Screen {
     private final Minecraft client = Minecraft.getInstance();
     private final ArrayList<File> localSkins = new ArrayList<>();
     private int selectedIndex = -1;
     private int scrollOffset = 0;
 
-    private float rotationYaw = 0;
-    private float rotationPitch = 0;
-    private float zoom = 1.0f;
-
-    private double lastMouseX, lastMouseY;
-    private boolean rotating = false;
-    private boolean scrolling = false;
-
     private boolean useAlex = false; // Steve/Alex切替
 
-    // 追加: 現在選択中のカスタムスキン
     private static ResourceLocation currentCustomSkin;
 
-    protected SkinChangeScreen() {
-        super(Component.literal("JavaSkinChanger"));
+    protected SkinChangeScreen2D() {
+        super(Component.literal("JavaSkinChanger 2D"));
     }
 
     @Override
     protected void init() {
         loadLocalSkins();
 
-        // アップロードボタン
         addRenderableWidget(new Button(10, 10, 150, 20, Component.literal("Upload Skin"), b -> openSkinFile()));
-
-        // Mojangスキン取得ボタン
         addRenderableWidget(new Button(170, 10, 150, 20, Component.literal("Fetch Mojang Skin"), b -> fetchMojangSkin()));
-
-        // Steve/Alex切替トグル
-        addRenderableWidget(new Button(330, 10, 100, 20, Component.literal("Steve/Alex"), b -> {
-            useAlex = !useAlex;
-        }));
+        addRenderableWidget(new Button(330, 10, 100, 20, Component.literal("Steve/Alex"), b -> useAlex = !useAlex));
     }
 
     private void loadLocalSkins() {
         File dir = new File("config/skins");
         if (!dir.exists()) dir.mkdirs();
-
         File[] skins = dir.listFiles(f -> f.getName().endsWith(".png"));
-        if (skins != null) {
-            for (File f : skins) localSkins.add(f);
-        }
+        if (skins != null) for (File f : skins) localSkins.add(f);
     }
 
     private void openSkinFile() {
@@ -78,27 +57,19 @@ public class SkinChangeScreen extends Screen {
         chooser.setDialogTitle("Select a Minecraft Skin PNG");
         int result = chooser.showOpenDialog(null);
         if (result != JFileChooser.APPROVE_OPTION) return;
-
         File file = chooser.getSelectedFile();
         if (!file.exists()) return;
-
         applySkin(file);
     }
 
-    // 追加: applySkinを static 管理用に統合
     private void applySkin(File file) {
         try {
             BufferedImage img = ImageIO.read(file);
-            BufferedImage resized = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
-            resized.getGraphics().drawImage(img, 0, 0, 64, 64, null);
-
-            NativeImage nativeImage = NativeImage.read(toInputStream(resized));
+            NativeImage nativeImage = NativeImage.read(toInputStream(img));
             ResourceLocation skin = new ResourceLocation("javaskinchanger", "customskin");
             client.getTextureManager().register(skin, new net.minecraft.client.renderer.texture.NativeImageTexture(nativeImage));
-
-            currentCustomSkin = skin;  // ←ここで static 保存
+            currentCustomSkin = skin;
             applySkinToPlayer(client.player, skin);
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -141,10 +112,9 @@ public class SkinChangeScreen extends Screen {
 
                 client.execute(() -> {
                     client.getTextureManager().register(skin, new net.minecraft.client.renderer.texture.NativeImageTexture(nativeImage));
-                    currentCustomSkin = skin; // ←static保存
+                    currentCustomSkin = skin;
                     applySkinToPlayer(client.player, skin);
                 });
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -153,7 +123,7 @@ public class SkinChangeScreen extends Screen {
 
     private void applySkinToPlayer(@Nullable LocalPlayer player, ResourceLocation skin) {
         if (player == null) return;
-        // Minecraft 1.21.x でのカスタムスキン適用はMixinで player.getSkinTexture() を差し替え
+        // ここはMixinで差し替え対応
     }
 
     private InputStream toInputStream(BufferedImage img) throws IOException {
@@ -163,17 +133,16 @@ public class SkinChangeScreen extends Screen {
     }
 
     @Override
-    public void render(PoseStack matrices, int mouseX, int mouseY, float delta) {
+    public void render(net.minecraft.client.gui.GuiGraphics matrices, int mouseX, int mouseY, float delta) {
         renderBackground(matrices);
 
-        // 横スクロール2Dサムネイル
+        // 2Dサムネイル表示
         int startX = 10 - scrollOffset;
         int y = 50;
         int size = 32;
         int padding = 5;
 
         TextureManager tm = client.getTextureManager();
-
         for (int i = 0; i < localSkins.size(); i++) {
             File f = localSkins.get(i);
             try {
@@ -189,7 +158,6 @@ public class SkinChangeScreen extends Screen {
 
                 if (mouseX >= startX + i * (size + padding) && mouseX <= startX + i * (size + padding) + size &&
                         mouseY >= y && mouseY <= y + size && client.mouseHandler.isLeftPressed()) {
-
                     selectedIndex = i;
                     applySkin(f);
                 }
@@ -200,43 +168,5 @@ public class SkinChangeScreen extends Screen {
         }
 
         super.render(matrices, mouseX, mouseY, delta);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (rotating) {
-            rotationYaw += deltaX * 0.5f;
-            rotationPitch -= deltaY * 0.5f;
-        } else if (scrolling) {
-            scrollOffset -= deltaX;
-            if (scrollOffset < 0) scrollOffset = 0;
-        }
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
-        return true;
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        rotating = false;
-        scrolling = false;
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) rotating = true;
-        if (button == 1) scrolling = true;
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        zoom += delta * 0.1f;
-        if (zoom < 0.1f) zoom = 0.1f;
-        if (zoom > 5.0f) zoom = 5.0f;
-        return true;
     }
 }
