@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 
 @Environment(EnvType.CLIENT)
-public class SkinChangeScreen2D extends Screen {
+public class SkinChangeScreen extends Screen {
     private final Minecraft client = Minecraft.getInstance();
     private final ArrayList<File> localSkins = new ArrayList<>();
     private int selectedIndex = -1;
@@ -33,7 +33,7 @@ public class SkinChangeScreen2D extends Screen {
     private static ResourceLocation currentCustomSkin;
 
     protected SkinChangeScreen() {
-        super(Component.literal("JavaSkinChanger 2D"));
+        super(Component.literal("JavaSkinChanger"));
     }
 
     @Override
