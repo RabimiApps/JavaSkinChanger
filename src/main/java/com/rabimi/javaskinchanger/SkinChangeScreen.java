@@ -32,7 +32,7 @@ public class SkinChangeScreen2D extends Screen {
 
     private static ResourceLocation currentCustomSkin;
 
-    protected SkinChangeScreen2D() {
+    protected SkinChangeScreen() {
         super(Component.literal("JavaSkinChanger 2D"));
     }
 
