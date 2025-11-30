@@ -35,11 +35,3 @@ sourceSets {
         }
     }
 }
-
-sourceSets {
-    runs {
-        client {
-            client = true
-        }
-    }
-}
